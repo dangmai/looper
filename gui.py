@@ -56,8 +56,8 @@ class Application(tk.Frame):
         self.timestamp_label = tk.Label(self, text='Timestamp File')
         self.timestamp_label.grid(row=0, column=0)
 
-        self.timestamp_entry = tk.Text(
-            self, state='disabled', width=60, height=1
+        self.timestamp_entry = tk.Entry(
+            self, state='disabled', width=60
         )
         self.timestamp_entry.grid(row=0, column=1)
 
@@ -69,8 +69,8 @@ class Application(tk.Frame):
         self.video_label = tk.Label(self, text='Video File')
         self.video_label.grid(row=1, column=0)
 
-        self.video_entry = tk.Text(
-            self, state='disabled', width=60, height=1
+        self.video_entry = tk.Entry(
+            self, state='disabled', width=60
         )
         self.video_entry.grid(row=1, column=1)
 
@@ -143,8 +143,9 @@ class Application(tk.Frame):
     def set_timestamp_filename(self, filename):
         self.timestamp_filename = filename
         self.timestamp_entry.config(state='normal')
-        self.timestamp_entry.delete(1.0, tk.END)
-        self.timestamp_entry.insert(1.0, self.timestamp_filename)
+        self.timestamp_entry.delete(0, tk.END)
+        self.timestamp_entry.insert(0, self.timestamp_filename)
+        self.timestamp_entry.xview_moveto(1.0)
         self.timestamp_entry.config(state='disabled')
         for item in self.tree_view.get_children():
             self.tree_view.delete(item)
@@ -164,8 +165,9 @@ class Application(tk.Frame):
                 found_video_file = os.path.join(directory, file_in_dir)
                 self.video_filename = found_video_file
                 self.video_entry.config(state='normal')
-                self.video_entry.delete(1.0, tk.END)
-                self.video_entry.insert(1.0, self.video_filename)
+                self.video_entry.delete(0, tk.END)
+                self.video_entry.insert(0, self.video_filename)
+                self.video_entry.xview_moveto(1.0)
                 self.video_entry.config(state='disabled')
                 break
 
@@ -181,8 +183,9 @@ class Application(tk.Frame):
     def set_video_filename(self, filename):
         self.video_filename = filename
         self.video_entry.config(state='normal')
-        self.video_entry.delete(1.0, tk.END)
-        self.video_entry.insert(1.0, self.video_filename)
+        self.video_entry.delete(0, tk.END)
+        self.video_entry.insert(0, self.video_filename)
+        self.video_entry.xview_moveto(1.0)
         self.video_entry.config(state='disabled')
 
     def set_timestamp_num(self, num):
