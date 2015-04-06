@@ -11,7 +11,7 @@ import tkinter as tk
 
 from tkinter import filedialog
 from tkinter import messagebox
-from tkinter import ttk
+from tkinter.ttk import Button, Entry, Frame, Label, Style, Treeview
 
 
 def main():
@@ -45,41 +45,44 @@ def main():
 
     app.mainloop()
 
-class Application(tk.Frame):
+class Application(Frame):
     def __init__(self, master=None):
         self.timestamp_filename = None
         self.video_filename = None
 
-        tk.Frame.__init__(self, master)
+        Frame.__init__(self, master)
         self.grid()
 
-        self.timestamp_label = tk.Label(self, text='Timestamp File')
-        self.timestamp_label.grid(row=0, column=0)
+        self.style = Style()
+        self.style.theme_use('clam')
 
-        self.timestamp_entry = tk.Entry(
+        self.timestamp_label = Label(self, text='Timestamp File')
+        self.timestamp_label.grid(row=0, column=0, padx=5, pady=5)
+
+        self.timestamp_entry = Entry(
             self, state='disabled', width=60
         )
-        self.timestamp_entry.grid(row=0, column=1)
+        self.timestamp_entry.grid(row=0, column=1, padx=5, pady=5)
 
-        self.timestamp_button = tk.Button(
+        self.timestamp_button = Button(
             self, text='Browse', command=self.get_timestamp_filename
         )
-        self.timestamp_button.grid(row=0, column=2)
+        self.timestamp_button.grid(row=0, column=2, padx=5, pady=5)
 
-        self.video_label = tk.Label(self, text='Video File')
+        self.video_label = Label(self, text='Video File')
         self.video_label.grid(row=1, column=0)
 
-        self.video_entry = tk.Entry(
+        self.video_entry = Entry(
             self, state='disabled', width=60
         )
-        self.video_entry.grid(row=1, column=1)
+        self.video_entry.grid(row=1, column=1, padx=5, pady=5)
 
-        self.video_button = tk.Button(
+        self.video_button = Button(
             self, text='Browse', command=self.get_video_filename
         )
-        self.video_button.grid(row=1, column=2)
+        self.video_button.grid(row=1, column=2, padx=5, pady=5)
 
-        self.tree_view = ttk.Treeview(
+        self.tree_view = Treeview(
             self, show='headings', selectmode='browse'
         )
         self.tree_view["columns"] = (
@@ -88,17 +91,17 @@ class Application(tk.Frame):
         self.tree_view.column("num", width=20)
         self.tree_view.column("start_time", minwidth=50, width=100)
         self.tree_view.column("end_time", minwidth=50, width=100)
-        self.tree_view.column("description", minwidth=100, width=400)
+        self.tree_view.column("description", minwidth=100, width=500)
         self.tree_view.heading("num", text="#")
         self.tree_view.heading("start_time", text="Start Time")
         self.tree_view.heading("end_time", text="End Time")
         self.tree_view.heading("description", text="Description")
-        self.tree_view.grid(row=2, columnspan=3)
+        self.tree_view.grid(row=2, columnspan=3, padx=5, pady=5)
 
-        self.loop_button = tk.Button(
+        self.loop_button = Button(
             self, text='Run', command=self.execute
         )
-        self.loop_button.grid(row=3, column=2)
+        self.loop_button.grid(row=3, column=2, padx=5, pady=5)
 
     def execute(self):
         """
