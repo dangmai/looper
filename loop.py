@@ -74,7 +74,7 @@ def parse_line(line):
     end_min, end_sec = [int(a) for a in end_time.split(':')]
     start_delta = datetime.timedelta(minutes=start_min, seconds=start_sec)
     end_delta = datetime.timedelta(minutes=end_min, seconds=end_sec)
-    return start_delta, end_delta, line.split('-', maxsplit=2)[2]
+    return start_delta, end_delta, line.split('-', maxsplit=2)[2].strip()
 
 if __name__ == '__main__':
     main()
