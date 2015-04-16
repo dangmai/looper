@@ -72,10 +72,12 @@ class MainWindow(QMainWindow):
         self.media_player = self.vlc_instance.media_player_new()
         # if sys.platform == "darwin":  # for MacOS
         #     self.ui.frame_video = QMacCocoaViewContainer(0)
-        self.ui.frame_video.double_clicked.connect(self.toggle_fullscreen)
+        self.ui.frame_video.double_clicked.connect(self.toggle_full_screen)
         self.ui.frame_video.wheel.connect(self.wheel_handler)
         self.ui.button_play_pause.clicked.connect(self.play_pause)
-        self.ui.button_full_screen.clicked.connect(self.toggle_fullscreen)
+        self.ui.button_full_screen.clicked.connect(self.toggle_full_screen)
+        self.ui.button_speed_up.clicked.connect(self.speed_up_handler)
+        self.ui.button_slow_down.clicked.connect(self.slow_down_handler)
         self.vlc_events = self.media_player.event_manager()
         self.vlc_events.event_attach(
             vlc.EventType.MediaPlayerTimeChanged, self.media_time_change_handler
@@ -102,6 +104,18 @@ class MainWindow(QMainWindow):
         elif new_volume > 30:
             new_volume = 30
         self.media_player.audio_set_volume(new_volume)
+
+    def speed_up_handler(self):
+        self.modify_rate(0.1)
+
+    def slow_down_handler(self):
+        self.modify_rate(-0.1)
+
+    def modify_rate(self, delta_percent):
+        new_rate = self.media_player.get_rate() + delta_percent
+        if new_rate < 0.2 or new_rate > 2.0:
+            return
+        self.media_player.set_rate(new_rate)
 
     def media_time_change_handler(self, _):
         if self.media_end_time == -1:
@@ -156,7 +170,7 @@ class MainWindow(QMainWindow):
         else:
             self.media_player.play()
 
-    def toggle_fullscreen(self):
+    def toggle_full_screen(self):
         if self.is_full_screen:
             self.ui.frame_media.showNormal()
             self.ui.frame_media.setParent(self.ui.widget_central)
@@ -172,19 +186,6 @@ class MainWindow(QMainWindow):
             self.ui.frame_media.showFullScreen()
             self.ui.frame_media.show()
         self.is_full_screen = not self.is_full_screen
-
-    def set_fullscreen(self, mode = False):
-        old_mode = self.media_player.get_fullscreen()
-        new_mode = int(mode)
-
-        self.media_player.set_fullscreen(new_mode)
-
-        if new_mode:
-            # New frame for fullscreen
-            full = QFrame()
-            self.media_player.set_xwindow(full.winId())
-        else:
-            self.media_player.set_xwindow(self.ui.frame_video.winId())
 
     def browse_timestamp_handler(self):
         """
