@@ -48,6 +48,15 @@ def play_video(video_file, timestamp_file, timestamp_num):
     """
     if not os.path.isfile(video_file):
         raise FileNotFoundError('Cannot access file: ' + video_file)
+    start_delta, end_delta = parse_line_in_timestamp_file(timestamp_file, timestamp_num)
+    process = subprocess.Popen([
+        'vlc', video_file, '--start-time', str(start_delta.seconds),
+        '--stop-time', str(end_delta.seconds), '--repeat'
+    ])
+    process.communicate()
+
+
+def parse_line_in_timestamp_file(timestamp_file, timestamp_num):
     if not os.path.isfile(timestamp_file):
         raise FileNotFoundError('Cannot access file: ' + timestamp_file)
     timestamp_file = open(timestamp_file, 'r')
@@ -57,11 +66,8 @@ def play_video(video_file, timestamp_file, timestamp_num):
         raise ValueError("Timestamp num is not valid")
     line = lines[timestamp_num - 1]  # We use human-friendly index here
     start_delta, end_delta, _ = parse_line(line)
-    process = subprocess.Popen([
-        'vlc', video_file, '--start-time', str(start_delta.seconds),
-        '--stop-time', str(end_delta.seconds), '--repeat'
-    ])
-    process.communicate()
+    return start_delta, end_delta
+
 
 def parse_line(line):
     """
