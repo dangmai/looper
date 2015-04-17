@@ -12,7 +12,7 @@ import traceback
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, \
-    QMessageBox, QTreeWidgetItem, QFrame
+    QMessageBox, QTreeWidgetItem, QFrame, QLabel
 from PyQt5.QtGui import QPalette, QColor, QWheelEvent
 from PyQt5.QtCore import QTimer, pyqtSignal, Qt
 
@@ -82,6 +82,8 @@ class MainWindow(QMainWindow):
         self.vlc_events.event_attach(
             vlc.EventType.MediaPlayerTimeChanged, self.media_time_change_handler
         )
+        self.media_player.video_set_mouse_input(False)
+        self.media_player.video_set_key_input(False)
         self.ui.show()
 
     def timer_handler(self):
