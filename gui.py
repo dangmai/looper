@@ -12,8 +12,8 @@ import traceback
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, \
-    QMessageBox, QTreeWidgetItem, QFrame, QLabel
-from PyQt5.QtGui import QPalette, QColor, QWheelEvent
+    QMessageBox, QTreeWidgetItem, QFrame, QSlider, QStyle
+from PyQt5.QtGui import QPalette, QColor, QWheelEvent, QKeyEvent
 from PyQt5.QtCore import QTimer, pyqtSignal, Qt
 
 import loop
@@ -23,6 +23,7 @@ import vlc
 class VideoFrame(QFrame):
     double_clicked = pyqtSignal()
     wheel = pyqtSignal(QWheelEvent)
+    key_pressed = pyqtSignal(QKeyEvent)
 
     def __init__(self, parent=None):
         QFrame.__init__(self, parent)
@@ -40,6 +41,25 @@ class VideoFrame(QFrame):
     def wheelEvent(self, event):
         self.wheel.emit(event)
 
+    def keyPressEvent(self, event):
+        self.key_pressed.emit(event)
+
+class JumpSlider(QSlider):
+    def __init__(self, parent=None):
+        QSlider.__init__(self, parent)
+
+    def mousePressEvent(self, ev):
+        """ Jump to click position """
+        self.setValue(QStyle.sliderValueFromPosition(
+            self.minimum(), self.maximum(), ev.x(), self.width())
+        )
+
+    def mouseMoveEvent(self, ev):
+        """ Jump to pointer position while moving """
+        self.setValue(QStyle.sliderValueFromPosition(
+            self.minimum(), self.maximum(), ev.x(), self.width())
+        )
+
 class MainWindow(QMainWindow):
     """
     The main window class
@@ -53,11 +73,13 @@ class MainWindow(QMainWindow):
         self.media_start_time = None
         self.media_end_time = None
         self.restart_needed = False
-        self.timer_period = 500
+        self.timer_period = 100
         self.is_full_screen = False
         self.media_played = False
+        self.original_window_flags = None
 
         self.timer = QTimer()
+        self.timer.timeout.connect(self.update_ui)
         self.timer.timeout.connect(self.timer_handler)
         self.timer.start(self.timer_period)
 
@@ -74,10 +96,17 @@ class MainWindow(QMainWindow):
         #     self.ui.frame_video = QMacCocoaViewContainer(0)
         self.ui.frame_video.double_clicked.connect(self.toggle_full_screen)
         self.ui.frame_video.wheel.connect(self.wheel_handler)
+        self.ui.frame_video.key_pressed.connect(self.key_handler)
         self.ui.button_play_pause.clicked.connect(self.play_pause)
         self.ui.button_full_screen.clicked.connect(self.toggle_full_screen)
         self.ui.button_speed_up.clicked.connect(self.speed_up_handler)
         self.ui.button_slow_down.clicked.connect(self.slow_down_handler)
+        self.ui.button_mute_toggle.clicked.connect(self.toggle_mute)
+        self.ui.slider_progress.setTracking(False)
+        self.ui.slider_progress.valueChanged.connect(self.set_media_position)
+        self.ui.slider_volume.valueChanged.connect(self.set_volume)
+        # Set up default volume
+        self.set_volume(self.ui.slider_volume.value())
         self.vlc_events = self.media_player.event_manager()
         self.vlc_events.event_attach(
             vlc.EventType.MediaPlayerTimeChanged, self.media_time_change_handler
@@ -85,6 +114,18 @@ class MainWindow(QMainWindow):
         self.media_player.video_set_mouse_input(False)
         self.media_player.video_set_key_input(False)
         self.ui.show()
+
+    def set_media_position(self, position):
+        self.media_player.set_position(position / 10000.0)
+        self.media_end_time = -1
+        self.ui.list_timestamp.setCurrentItem(None)
+
+    def update_ui(self):
+        self.ui.slider_progress.blockSignals(True)
+        self.ui.slider_progress.setValue(
+            self.media_player.get_position() * 10000
+        )
+        self.ui.slider_progress.blockSignals(False)
 
     def timer_handler(self):
         """
@@ -96,15 +137,28 @@ class MainWindow(QMainWindow):
             self.media_player.set_time(self.media_start_time)
             self.restart_needed = False
 
+    def key_handler(self, event):
+        if event.key() == Qt.Key_Escape and self.is_full_screen:
+            self.toggle_full_screen()
+        if event.key() == Qt.Key_F:
+            self.toggle_full_screen()
+
     def wheel_handler(self, event):
         self.modify_volume(1 if event.angleDelta().y() > 0 else -1)
+
+    def toggle_mute(self):
+        self.media_player.audio_set_mute(not self.media_player.audio_get_mute())
 
     def modify_volume(self, delta_percent):
         new_volume = self.media_player.audio_get_volume() + delta_percent
         if new_volume < 0:
             new_volume = 0
-        elif new_volume > 30:
-            new_volume = 30
+        elif new_volume > 40:
+            new_volume = 40
+        self.media_player.audio_set_volume(new_volume)
+        self.ui.slider_volume.setValue(self.media_player.audio_get_volume())
+
+    def set_volume(self, new_volume):
         self.media_player.audio_set_volume(new_volume)
 
     def speed_up_handler(self):
@@ -137,8 +191,8 @@ class MainWindow(QMainWindow):
             return
         selected_timestamps = self.ui.list_timestamp.selectedItems()
         try:
-            self.media = self.vlc_instance.media_new(self.video_filename)
-            self.media_player.set_media(self.media)
+            media = self.vlc_instance.media_new(self.video_filename)
+            self.media_player.set_media(media)
             if sys.platform.startswith('linux'): # for Linux using the X Server
                 self.media_player.set_xwindow(self.ui.frame_video.winId())
             elif sys.platform == "win32": # for Windows
@@ -184,9 +238,11 @@ class MainWindow(QMainWindow):
             self.original_window_flags = self.ui.frame_media.windowFlags()
             self.original_size = self.ui.frame_media.size()
             self.ui.frame_media.setParent(None)
-            self.ui.frame_media.setWindowFlags(Qt.FramelessWindowHint | Qt.CustomizeWindowHint)
+            self.ui.frame_media.setWindowFlags(Qt.FramelessWindowHint |
+                                               Qt.CustomizeWindowHint)
             self.ui.frame_media.showFullScreen()
             self.ui.frame_media.show()
+        self.ui.frame_video.setFocus()
         self.is_full_screen = not self.is_full_screen
 
     def browse_timestamp_handler(self):
@@ -225,9 +281,12 @@ class MainWindow(QMainWindow):
 
         directory = os.path.dirname(self.timestamp_filename)
         basename = os.path.basename(self.timestamp_filename)
-        name_without_ext = os.path.splitext(basename)[0]
+        timestamp_name_without_ext = os.path.splitext(basename)[0]
         for file_in_dir in os.listdir(directory):
-            if os.path.splitext(file_in_dir)[0] == name_without_ext and file_in_dir != basename:
+            current_filename = os.path.splitext(file_in_dir)[0]
+            found_video = (current_filename == timestamp_name_without_ext and
+                           file_in_dir != basename)
+            if found_video:
                 found_video_file = os.path.join(directory, file_in_dir)
                 self.video_filename = found_video_file
                 self.ui.entry_video.setText(self.video_filename)
