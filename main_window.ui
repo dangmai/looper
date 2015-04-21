@@ -20,14 +20,20 @@
    <string>Video Loop</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QLineEdit[readOnly=&quot;true&quot;] {
+   <string notr="true">QLineEdit[readOnly=&quot;false&quot;] {
+    color: #808080;
+    background-color: #000000;
+    border: 1px solid #B0B0B0;
+    border-radius: 2px;
+}
+QLineEdit[readOnly=&quot;true&quot;] {
     color: #808080;
     background-color: #F0F0F0;
     border: 1px solid #B0B0B0;
     border-radius: 2px;
 }
 
-QTextEdit[readOnly=&quot;true&quot;] {
+QPlainTextEdit[readOnly=&quot;true&quot;] {
     color: #808080;
     background-color: #F0F0F0;
     border: 1px solid #B0B0B0;
@@ -304,6 +310,9 @@ QTextEdit[readOnly=&quot;true&quot;] {
       <property name="verticalScrollBarPolicy">
        <enum>Qt::ScrollBarAsNeeded</enum>
       </property>
+      <property name="editTriggers">
+       <set>QAbstractItemView::NoEditTriggers</set>
+      </property>
       <property name="alternatingRowColors">
        <bool>true</bool>
       </property>
@@ -390,9 +399,9 @@ QTextEdit[readOnly=&quot;true&quot;] {
         </widget>
        </item>
        <item row="2" column="1">
-        <widget class="QTextEdit" name="entry_description">
+        <widget class="QPlainTextEdit" name="entry_description">
          <property name="enabled">
-          <bool>false</bool>
+          <bool>true</bool>
          </property>
          <property name="maximumSize">
           <size>
@@ -403,12 +412,16 @@ QTextEdit[readOnly=&quot;true&quot;] {
          <property name="readOnly">
           <bool>true</bool>
          </property>
-         <property name="acceptRichText">
-          <bool>false</bool>
-         </property>
         </widget>
        </item>
       </layout>
+     </widget>
+    </item>
+    <item row="4" column="0">
+     <widget class="QPushButton" name="button_save">
+      <property name="text">
+       <string>Save</string>
+      </property>
      </widget>
     </item>
    </layout>

@@ -15,11 +15,11 @@ from datetime import timedelta
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, \
     QMessageBox, QFrame, QSlider, QStyle, QStyleOptionSlider, QHeaderView, \
-    QTableView
+    QTableView, QDataWidgetMapper
 from PyQt5.QtGui import QPalette, QColor, QWheelEvent, QKeyEvent, QPainter, \
     QPen
 from PyQt5.QtCore import QTimer, pyqtSignal, Qt, QAbstractTableModel, QVariant, \
-    QRect
+    QRect, QModelIndex
 
 import vlc
 
@@ -66,6 +66,14 @@ class Timestamp():
     def get_value_from_index(self, index):
         return self.start_time if index == 0 else self.end_time if index == 1 \
             else self.description
+
+    def set_value_from_index(self, index, value):
+        if index == 0:
+            self.start_time = value
+        elif index == 1:
+            self.end_time = value
+        elif index == 2:
+            self.description = value
 
     def __repr__(self):
         return json.dumps({
@@ -137,7 +145,7 @@ class TimestampModel(QAbstractTableModel):
             return QVariant()
         if role == Qt.UserRole:
             return self.list[index.row()].get_value_from_index(index.column())
-        if role != Qt.DisplayRole:
+        if role != Qt.DisplayRole and role != Qt.EditRole:
             return QVariant()
         return self.list[index.row()].get_string_value_from_index(
             index.column())
@@ -146,6 +154,18 @@ class TimestampModel(QAbstractTableModel):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self.list.header_at_index(col)
         return QVariant()
+
+    def flags(self, index):
+        if not index.isValid():
+            return None
+        return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
+    def setData(self, index, content, role=Qt.EditRole):
+        if not index.isValid() or role != Qt.EditRole:
+            return False
+        self.list[index.row()].set_value_from_index(index.column(), content)
+        self.dataChanged.emit(index, index)
+        return True
 
 
 class TimestampTableView(QTableView):
@@ -252,7 +272,8 @@ class MainWindow(QMainWindow):
         self.media_started_playing = False
         self.original_window_flags = None
 
-        self.ui.list_timestamp.setModel(TimestampModel(None, self))
+        self.model = TimestampModel(None, self)
+        self.ui.list_timestamp.setModel(self.model)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_ui)
@@ -281,6 +302,14 @@ class MainWindow(QMainWindow):
         self.ui.slider_progress.setTracking(False)
         self.ui.slider_progress.valueChanged.connect(self.set_media_position)
         self.ui.slider_volume.valueChanged.connect(self.set_volume)
+        # Mapper between the table and the entry detail
+        self.mapper = QDataWidgetMapper()
+        self.mapper.setSubmitPolicy(QDataWidgetMapper.ManualSubmit)
+        self.mapper.setModel(self.model)
+        self.mapper.addMapping(self.ui.entry_start_time, 0)
+        self.mapper.addMapping(self.ui.entry_end_time, 1)
+        self.mapper.addMapping(self.ui.entry_description, 2)
+        self.ui.button_save.clicked.connect(self.mapper.submit)
         # Set up default volume
         self.set_volume(self.ui.slider_volume.value())
         self.vlc_events = self.media_player.event_manager()
@@ -412,7 +441,7 @@ class MainWindow(QMainWindow):
             self.ui.frame_media.setParent(self.ui.widget_central)
             self.ui.frame_media.resize(self.original_size)
             self.ui.frame_media.overrideWindowFlags(self.original_window_flags)
-            self.ui.layout_main.addWidget(self.ui.frame_media, 2, 3, 1, 1)
+            self.ui.layout_main.addWidget(self.ui.frame_media, 2, 3, 3, 1)
             self.ui.frame_media.show()
         else:
             self.original_window_flags = self.ui.frame_media.windowFlags()
@@ -447,9 +476,14 @@ class MainWindow(QMainWindow):
         self.timestamp_filename = filename
         self.ui.entry_timestamp.setText(self.timestamp_filename)
 
-        self.ui.list_timestamp.setModel(
-            TimestampModel(self.timestamp_filename, self)
-        )
+        self.model = TimestampModel(self.timestamp_filename, self)
+        self.ui.list_timestamp.setModel(self.model)
+        self.mapper.setModel(self.model)
+        self.mapper.addMapping(self.ui.entry_start_time, 0)
+        self.mapper.addMapping(self.ui.entry_end_time, 1)
+        self.mapper.addMapping(self.ui.entry_description, 2)
+        self.ui.list_timestamp.selectionModel().selectionChanged.connect(
+            self.timestamp_selection_changed)
 
         directory = os.path.dirname(self.timestamp_filename)
         basename = os.path.basename(self.timestamp_filename)
@@ -462,6 +496,23 @@ class MainWindow(QMainWindow):
                 found_video_file = os.path.join(directory, file_in_dir)
                 self.set_video_filename(found_video_file)
                 break
+
+    def timestamp_selection_changed(self, selected, deselected):
+        if len(selected) > 0:
+            self.mapper.setCurrentModelIndex(selected.indexes()[0])
+            self.ui.button_save.setEnabled(True)
+            self.ui.entry_start_time.setReadOnly(False)
+            self.ui.entry_end_time.setReadOnly(False)
+            self.ui.entry_description.setReadOnly(False)
+        else:
+            self.mapper.setCurrentModelIndex(QModelIndex())
+            self.ui.button_save.setEnabled(False)
+            self.ui.entry_start_time.clear()
+            self.ui.entry_end_time.clear()
+            self.ui.entry_description.clear()
+            self.ui.entry_start_time.setReadOnly(True)
+            self.ui.entry_end_time.setReadOnly(True)
+            self.ui.entry_description.setReadOnly(True)
 
     def set_video_filename(self, filename):
         """
