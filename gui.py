@@ -14,7 +14,8 @@ from datetime import timedelta
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, \
-    QMessageBox, QFrame, QSlider, QStyle, QStyleOptionSlider
+    QMessageBox, QFrame, QSlider, QStyle, QStyleOptionSlider, QHeaderView, \
+    QTableView
 from PyQt5.QtGui import QPalette, QColor, QWheelEvent, QKeyEvent, QPainter, \
     QPen
 from PyQt5.QtCore import QTimer, pyqtSignal, Qt, QAbstractTableModel, QVariant, \
@@ -145,6 +146,18 @@ class TimestampModel(QAbstractTableModel):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self.list.header_at_index(col)
         return QVariant()
+
+
+class TimestampTableView(QTableView):
+    def __init__(self, parent=None):
+        super(TimestampTableView, self).__init__(parent)
+        self.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+
+    def mouseReleaseEvent(self, event):
+        super(TimestampTableView, self).mouseReleaseEvent(event)
+        index = self.indexAt(event.pos())
+        if not index.isValid():
+            self.selectionModel().clearSelection()
 
 
 class VideoFrame(QFrame):
@@ -286,7 +299,6 @@ class MainWindow(QMainWindow):
     def set_media_position(self, position):
         self.media_player.set_position(position / 10000.0)
         self.media_end_time = -1
-        self.ui.list_timestamp.selectionModel().clearSelection()
 
     def update_ui(self):
         self.ui.slider_progress.blockSignals(True)
@@ -358,14 +370,6 @@ class MainWindow(QMainWindow):
             self._show_error("No video file chosen")
             return
         try:
-            media = self.vlc_instance.media_new(self.video_filename)
-            self.media_player.set_media(media)
-            if sys.platform.startswith('linux'): # for Linux using the X Server
-                self.media_player.set_xwindow(self.ui.frame_video.winId())
-            elif sys.platform == "win32": # for Windows
-                self.media_player.set_hwnd(self.ui.frame_video.winId())
-            elif sys.platform == "darwin": # for MacOS
-                self.media_player.set_nsobject(self.ui.frame_video.winId())
             if self.ui.list_timestamp.selectionModel().hasSelection():
                 selected_row = self.ui.list_timestamp.selectionModel().\
                     selectedRows()[0]
@@ -377,9 +381,14 @@ class MainWindow(QMainWindow):
                     selected_row.model().index(selected_row.row(), 1),
                     Qt.UserRole
                 )
+                duration = self.media_player.get_media().get_duration()
                 self.media_start_time = start_delta.milliseconds
                 self.media_end_time = end_delta.milliseconds
-                print(start_delta.milliseconds)
+                slider_start_pos = (self.media_start_time / duration) * (self.ui.slider_progress.maximum() - self.ui.slider_progress.minimum())
+                slider_end_pos = (self.media_end_time / duration) * (self.ui.slider_progress.maximum() - self.ui.slider_progress.minimum())
+                self.ui.slider_progress.set_highlight_start(int(slider_start_pos))
+                self.ui.slider_progress.set_highlight_end(int(slider_end_pos))
+
             else:
                 self.media_start_time = 0
                 self.media_end_time = -1
@@ -455,8 +464,7 @@ class MainWindow(QMainWindow):
                            file_in_dir != basename)
             if found_video:
                 found_video_file = os.path.join(directory, file_in_dir)
-                self.video_filename = found_video_file
-                self.ui.entry_video.setText(self.video_filename)
+                self.set_video_filename(found_video_file)
                 break
 
     def set_video_filename(self, filename):
@@ -466,9 +474,25 @@ class MainWindow(QMainWindow):
         if not os.path.isfile(filename):
             self._show_error("Cannot access video file " + filename)
             return
+
         self.video_filename = filename
-        self.ui.entry_video.setText(self.video_filename)
-        self.media_started_playing = False
+
+        media = self.vlc_instance.media_new(self.video_filename)
+        media.parse()
+        if not media.get_duration():
+            self._show_error("Cannot play this media file")
+            self.media_player.set_media(None)
+            self.video_filename = None
+        else:
+            self.media_player.set_media(media)
+            if sys.platform.startswith('linux'): # for Linux using the X Server
+                self.media_player.set_xwindow(self.ui.frame_video.winId())
+            elif sys.platform == "win32": # for Windows
+                self.media_player.set_hwnd(self.ui.frame_video.winId())
+            elif sys.platform == "darwin": # for MacOS
+                self.media_player.set_nsobject(self.ui.frame_video.winId())
+            self.ui.entry_video.setText(self.video_filename)
+            self.media_started_playing = False
 
     def browse_video_handler(self):
         """
