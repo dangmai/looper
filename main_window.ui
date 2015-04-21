@@ -19,6 +19,21 @@
   <property name="windowTitle">
    <string>Video Loop</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">QLineEdit[readOnly=&quot;true&quot;] {
+    color: #808080;
+    background-color: #F0F0F0;
+    border: 1px solid #B0B0B0;
+    border-radius: 2px;
+}
+
+QTextEdit[readOnly=&quot;true&quot;] {
+    color: #808080;
+    background-color: #F0F0F0;
+    border: 1px solid #B0B0B0;
+    border-radius: 2px;
+}</string>
+  </property>
   <widget class="QWidget" name="widget_central">
    <layout class="QGridLayout" name="layout_main">
     <item row="0" column="1">
@@ -28,6 +43,12 @@
         <horstretch>0</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
+      </property>
+      <property name="autoFillBackground">
+       <bool>false</bool>
+      </property>
+      <property name="styleSheet">
+       <string notr="true"/>
       </property>
       <property name="readOnly">
        <bool>true</bool>
@@ -56,6 +77,9 @@
     </item>
     <item row="1" column="1">
      <widget class="QLineEdit" name="entry_video">
+      <property name="autoFillBackground">
+       <bool>false</bool>
+      </property>
       <property name="readOnly">
        <bool>true</bool>
       </property>
@@ -75,14 +99,14 @@
       </property>
      </widget>
     </item>
-    <item row="3" column="2">
+    <item row="4" column="2">
      <widget class="QPushButton" name="button_run">
       <property name="text">
        <string>Run</string>
       </property>
      </widget>
     </item>
-    <item row="2" column="3" rowspan="2">
+    <item row="2" column="3" rowspan="3">
      <widget class="QFrame" name="frame_media">
       <property name="minimumSize">
        <size>
@@ -298,6 +322,93 @@
       <attribute name="verticalHeaderHighlightSections">
        <bool>false</bool>
       </attribute>
+     </widget>
+    </item>
+    <item row="3" column="0" colspan="3">
+     <widget class="QFrame" name="frame_timestamp_detail">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::Panel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <layout class="QFormLayout" name="formLayout">
+       <property name="labelAlignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       </property>
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_start_time">
+         <property name="text">
+          <string>Start Time</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="entry_start_time">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="autoFillBackground">
+          <bool>false</bool>
+         </property>
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_end_time">
+         <property name="text">
+          <string>End Time</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="entry_end_time">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="autoFillBackground">
+          <bool>false</bool>
+         </property>
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="label_description">
+         <property name="text">
+          <string>Description</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QTextEdit" name="entry_description">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>75</height>
+          </size>
+         </property>
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+         <property name="acceptRichText">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </widget>
     </item>
    </layout>
