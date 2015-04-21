@@ -6,18 +6,145 @@ Program to loop videos based on timestamps in a text file
 """
 
 import argparse
+import json
 import os
 import sys
 import traceback
+from datetime import timedelta
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, \
-    QMessageBox, QTreeWidgetItem, QFrame, QSlider, QStyle
-from PyQt5.QtGui import QPalette, QColor, QWheelEvent, QKeyEvent
-from PyQt5.QtCore import QTimer, pyqtSignal, Qt
+    QMessageBox, QFrame, QSlider, QStyle, QStyleOptionSlider
+from PyQt5.QtGui import QPalette, QColor, QWheelEvent, QKeyEvent, QPainter, \
+    QPen
+from PyQt5.QtCore import QTimer, pyqtSignal, Qt, QAbstractTableModel, QVariant, \
+    QRect
 
-import loop
 import vlc
+
+
+class TimestampDelta(timedelta):
+    def __new__(cls, *args, **kwargs):
+        return super(TimestampDelta, cls).__new__(cls, *args, **kwargs)
+
+    def __str__(self):
+        mm, ss = divmod(self.seconds, 60)
+        hh, mm = divmod(mm, 60)
+        if self.days:
+            hh += self.days * 24
+        ms, _ = divmod(self.microseconds, 1000)
+        s = "%d:%02d:%02d.%03d" % (hh, mm, ss, ms)
+        return s
+
+    @property
+    def milliseconds(self):
+        ms = self.seconds * 1000000
+        if self.microseconds:
+            ms += self.microseconds
+        if self.days:
+            ms += self.days * 24 * 60 * 60 * 100000
+        return int(ms/1000)
+
+
+class Timestamp():
+    def __init__(self, start_time, end_time, description=None):
+        self.start_time = TimestampDelta(milliseconds=start_time)
+        self.end_time = TimestampDelta(milliseconds=end_time)
+        self.description = description
+
+    def get_displayed_start_time(self):
+        return str(self.start_time)
+
+    def get_displayed_end_time(self):
+        return str(self.end_time)
+
+    def get_string_value_from_index(self, index):
+        return str(self.start_time) if index == 0 else str(self.end_time) if index == 1\
+            else self.description
+
+    def get_value_from_index(self, index):
+        return self.start_time if index == 0 else self.end_time if index == 1 \
+            else self.description
+
+    def __repr__(self):
+        return json.dumps({
+            "start_time": str(self.start_time),
+            "end_time": str(self.end_time),
+            "description": self.description
+        })
+
+
+class TimestampList():
+    HEADERS = [
+        "Start Time",
+        "End Time",
+        "Description"
+    ]
+
+    def __init__(self, data=[]):
+        self.list = []
+        for timestamp in data:
+            self.list.append(
+                Timestamp(
+                    timestamp['start_time'],
+                    timestamp['end_time'],
+                    timestamp['description']
+                )
+            )
+
+    def append(self, timestamp):
+        self.list.append(timestamp)
+
+    def header_at_index(self, index):
+        return TimestampList.HEADERS[index]
+
+    def __len__(self):
+        return len(self.list)
+
+    def __getitem__(self, item):
+        return self.list[item]
+
+    def __str__(self):
+        return str(self.list)
+
+    def __repr__(self):
+        return repr(self.list)
+
+
+class TimestampModel(QAbstractTableModel):
+    def __init__(self, input_file_location=None, parent=None):
+        super(TimestampModel, self).__init__(parent)
+        self.input_file_location = input_file_location
+        self.list = TimestampList()
+
+        if input_file_location:
+            with open(self.input_file_location, "r+") as input_file:
+                self.list = TimestampList(json.load(input_file))
+
+    def rowCount(self, parent=None, *args, **kwargs):
+        if parent and parent.isValid():
+            return 0
+        return len(self.list)
+
+    def columnCount(self, parent=None, *args, **kwargs):
+        if parent and parent.isValid():
+            return 0
+        return 3
+
+    def data(self, index, role=None):
+        if not index.isValid():
+            return QVariant()
+        if role == Qt.UserRole:
+            return self.list[index.row()].get_value_from_index(index.column())
+        if role != Qt.DisplayRole:
+            return QVariant()
+        return self.list[index.row()].get_string_value_from_index(
+            index.column())
+
+    def headerData(self, col, orientation, role=None):
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            return self.list.header_at_index(col)
+        return QVariant()
 
 
 class VideoFrame(QFrame):
@@ -44,9 +171,12 @@ class VideoFrame(QFrame):
     def keyPressEvent(self, event):
         self.key_pressed.emit(event)
 
-class JumpSlider(QSlider):
+
+class HighlightedJumpSlider(QSlider):
     def __init__(self, parent=None):
-        QSlider.__init__(self, parent)
+        super(HighlightedJumpSlider, self).__init__(parent)
+        self.highlight_start = None
+        self.highlight_end = None
 
     def mousePressEvent(self, ev):
         """ Jump to click position """
@@ -59,6 +189,42 @@ class JumpSlider(QSlider):
         self.setValue(QStyle.sliderValueFromPosition(
             self.minimum(), self.maximum(), ev.x(), self.width())
         )
+
+    def set_highlight_start(self, highlight_start):
+        self.highlight_start = highlight_start \
+            if self.highlight_end is None or \
+            highlight_start < self.highlight_end else None
+
+    def set_highlight_end(self, highlight_end):
+        self.highlight_end = highlight_end \
+            if self.highlight_start is None or \
+            highlight_end > self.highlight_start else None
+
+    def paintEvent(self, event):
+        if self.highlight_start and self.highlight_end:
+            p = QPainter(self)
+            opt = QStyleOptionSlider()
+            self.initStyleOption(opt)
+            gr = self.style().subControlRect(QStyle.CC_Slider, opt,
+                                             QStyle.SC_SliderGroove, self)
+            rect_x, rect_y, rect_w, rect_h = gr.getRect()
+            start_x = int(
+                (rect_w/(self.maximum() - self.minimum()))
+                * self.highlight_start + rect_x
+            )
+            start_y = rect_y + 3
+            width = int(
+                (rect_w/(self.maximum() - self.minimum()))
+                * self.highlight_end + rect_x
+            ) - start_x
+            height = rect_h - 3
+            c = QColor(0, 152, 116)
+            p.setBrush(c)
+            c.setAlphaF(0.3)
+            p.setPen(QPen(c, 1.0))
+            p.drawRects(QRect(start_x, start_y, width, height))
+        super(HighlightedJumpSlider, self).paintEvent(event)
+
 
 class MainWindow(QMainWindow):
     """
@@ -75,8 +241,10 @@ class MainWindow(QMainWindow):
         self.restart_needed = False
         self.timer_period = 100
         self.is_full_screen = False
-        self.media_played = False
+        self.media_started_playing = False
         self.original_window_flags = None
+
+        self.ui.list_timestamp.setModel(TimestampModel(None, self))
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_ui)
@@ -118,7 +286,7 @@ class MainWindow(QMainWindow):
     def set_media_position(self, position):
         self.media_player.set_position(position / 10000.0)
         self.media_end_time = -1
-        self.ui.list_timestamp.setCurrentItem(None)
+        self.ui.list_timestamp.selectionModel().clearSelection()
 
     def update_ui(self):
         self.ui.slider_progress.blockSignals(True)
@@ -189,7 +357,6 @@ class MainWindow(QMainWindow):
         if self.video_filename is None:
             self._show_error("No video file chosen")
             return
-        selected_timestamps = self.ui.list_timestamp.selectedItems()
         try:
             media = self.vlc_instance.media_new(self.video_filename)
             self.media_player.set_media(media)
@@ -199,18 +366,26 @@ class MainWindow(QMainWindow):
                 self.media_player.set_hwnd(self.ui.frame_video.winId())
             elif sys.platform == "darwin": # for MacOS
                 self.media_player.set_nsobject(self.ui.frame_video.winId())
-            if selected_timestamps:
-                start_delta, end_delta = loop.parse_line_in_timestamp_file(
-                    self.timestamp_filename, int(selected_timestamps[0].text(0))
+            if self.ui.list_timestamp.selectionModel().hasSelection():
+                selected_row = self.ui.list_timestamp.selectionModel().\
+                    selectedRows()[0]
+                start_delta = self.ui.list_timestamp.model().data(
+                    selected_row.model().index(selected_row.row(), 0),
+                    Qt.UserRole
                 )
-                self.media_start_time = start_delta.seconds * 1000
-                self.media_end_time = end_delta.seconds * 1000
+                end_delta = self.ui.list_timestamp.model().data(
+                    selected_row.model().index(selected_row.row(), 1),
+                    Qt.UserRole
+                )
+                self.media_start_time = start_delta.milliseconds
+                self.media_end_time = end_delta.milliseconds
+                print(start_delta.milliseconds)
             else:
                 self.media_start_time = 0
                 self.media_end_time = -1
             self.media_player.play()
             self.media_player.set_time(self.media_start_time)
-            self.media_played = True
+            self.media_started_playing = True
         except Exception as ex:
             self._show_error(str(ex))
             print(traceback.format_exc())
@@ -218,7 +393,7 @@ class MainWindow(QMainWindow):
     def play_pause(self):
         """Toggle play/pause status
         """
-        if not self.media_played:
+        if not self.media_started_playing:
             self.run()
             return
         if self.media_player.is_playing():
@@ -267,17 +442,9 @@ class MainWindow(QMainWindow):
         self.timestamp_filename = filename
         self.ui.entry_timestamp.setText(self.timestamp_filename)
 
-        for _ in range(self.ui.list_timestamp.topLevelItemCount()):
-            self.ui.list_timestamp.takeTopLevelItem(0)
-        with open(self.timestamp_filename, 'r') as timestamp_file:
-            for index, line in enumerate(timestamp_file):
-                start_delta, end_delta, description = loop.parse_line(line)
-                timestamp = QTreeWidgetItem()
-                timestamp.setText(0, str(index + 1))
-                timestamp.setText(1, str(start_delta))
-                timestamp.setText(2, str(end_delta))
-                timestamp.setText(3, description)
-                self.ui.list_timestamp.addTopLevelItem(timestamp)
+        self.ui.list_timestamp.setModel(
+            TimestampModel(self.timestamp_filename, self)
+        )
 
         directory = os.path.dirname(self.timestamp_filename)
         basename = os.path.basename(self.timestamp_filename)
@@ -292,17 +459,6 @@ class MainWindow(QMainWindow):
                 self.ui.entry_video.setText(self.video_filename)
                 break
 
-    def set_timestamp_num(self, num):
-        """
-        Set the chosen timestamp
-        """
-        if num > self.ui.list_timestamp.topLevelItemCount() or num < 0:
-            self._show_error("Cannot select timestamp #" + str(num))
-            return
-        self.ui.list_timestamp.setCurrentItem(
-            self.ui.list_timestamp.topLevelItem(num - 1)
-        )
-
     def set_video_filename(self, filename):
         """
         Set the video filename
@@ -312,7 +468,7 @@ class MainWindow(QMainWindow):
             return
         self.video_filename = filename
         self.ui.entry_video.setText(self.video_filename)
-        self.media_played = False
+        self.media_started_playing = False
 
     def browse_video_handler(self):
         """
@@ -329,6 +485,7 @@ class MainWindow(QMainWindow):
     def _show_error(self, message, title="Error"):
         QMessageBox.warning(self, title, message)
 
+
 def main():
     """
     Main function for the program
@@ -341,8 +498,6 @@ def main():
                         help='the location of the timestamp file')
     parser.add_argument('--video_filename', metavar='V',
                         help='the location of the video file')
-    parser.add_argument('--timestamp_num', metavar='N', type=int,
-                        help='which timestamp to use')
     args = parser.parse_args()
     app = QApplication(sys.argv)
     main_window = MainWindow()
@@ -350,8 +505,6 @@ def main():
     if args.timestamp_filename:
         timestamp_filename = os.path.abspath(args.timestamp_filename)
         main_window.set_timestamp_filename(timestamp_filename)
-        if args.timestamp_num:
-            main_window.set_timestamp_num(args.timestamp_num)
     if args.video_filename:
         video_filename = os.path.abspath(args.video_filename)
         main_window.set_video_filename(video_filename)
