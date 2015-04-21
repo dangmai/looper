@@ -203,15 +203,9 @@ class HighlightedJumpSlider(QSlider):
             self.minimum(), self.maximum(), ev.x(), self.width())
         )
 
-    def set_highlight_start(self, highlight_start):
-        self.highlight_start = highlight_start \
-            if self.highlight_end is None or \
-            highlight_start < self.highlight_end else None
-
-    def set_highlight_end(self, highlight_end):
-        self.highlight_end = highlight_end \
-            if self.highlight_start is None or \
-            highlight_end > self.highlight_start else None
+    def set_highlight(self, start, end):
+        if start and end and start < end:
+            self.highlight_start, self.highlight_end = start, end
 
     def paintEvent(self, event):
         if self.highlight_start and self.highlight_end:
@@ -235,7 +229,8 @@ class HighlightedJumpSlider(QSlider):
             p.setBrush(c)
             c.setAlphaF(0.3)
             p.setPen(QPen(c, 1.0))
-            p.drawRects(QRect(start_x, start_y, width, height))
+            rect_to_paint = QRect(start_x, start_y, width, height)
+            p.drawRects(rect_to_paint)
         super(HighlightedJumpSlider, self).paintEvent(event)
 
 
@@ -386,8 +381,9 @@ class MainWindow(QMainWindow):
                 self.media_end_time = end_delta.milliseconds
                 slider_start_pos = (self.media_start_time / duration) * (self.ui.slider_progress.maximum() - self.ui.slider_progress.minimum())
                 slider_end_pos = (self.media_end_time / duration) * (self.ui.slider_progress.maximum() - self.ui.slider_progress.minimum())
-                self.ui.slider_progress.set_highlight_start(int(slider_start_pos))
-                self.ui.slider_progress.set_highlight_end(int(slider_end_pos))
+                self.ui.slider_progress.set_highlight(
+                    int(slider_start_pos), int(slider_end_pos)
+                )
 
             else:
                 self.media_start_time = 0
