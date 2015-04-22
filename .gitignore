@@ -1,2 +1,4 @@
 __pycache__
 python_env
+*.tmsp
+*.mp4

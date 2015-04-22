@@ -6,276 +6,20 @@ Program to loop videos based on timestamps in a text file
 """
 
 import argparse
-import json
 import os
 import sys
 import traceback
-from datetime import timedelta
 
 import qtawesome as qta
 from PyQt5 import uic
 
+from lib import vlc
+from model import TimestampModel
+
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, \
-    QMessageBox, QFrame, QSlider, QStyle, QStyleOptionSlider, QHeaderView, \
-    QTableView, QDataWidgetMapper, QPlainTextEdit
-from PyQt5.QtGui import QPalette, QColor, QWheelEvent, QKeyEvent, QPainter, \
-    QPen, QCursor
-from PyQt5.QtCore import QTimer, pyqtSignal, Qt, QAbstractTableModel, QVariant, \
-    QRect, QModelIndex
-import vlc
-
-
-class TimestampDelta(timedelta):
-    def __new__(cls, *args, **kwargs):
-        return super(TimestampDelta, cls).__new__(cls, *args, **kwargs)
-
-    def __str__(self):
-        mm, ss = divmod(self.seconds, 60)
-        hh, mm = divmod(mm, 60)
-        if self.days:
-            hh += self.days * 24
-        ms, _ = divmod(self.microseconds, 1000)
-        s = "%d:%02d:%02d.%03d" % (hh, mm, ss, ms)
-        return s
-
-    @property
-    def milliseconds(self):
-        ms = self.seconds * 1000000
-        if self.microseconds:
-            ms += self.microseconds
-        if self.days:
-            ms += self.days * 24 * 60 * 60 * 100000
-        return int(ms/1000)
-
-
-class Timestamp():
-    def __init__(self, start_time, end_time, description=None):
-        self.start_time = TimestampDelta(milliseconds=start_time)
-        self.end_time = TimestampDelta(milliseconds=end_time)
-        self.description = description
-
-    def get_displayed_start_time(self):
-        return str(self.start_time)
-
-    def get_displayed_end_time(self):
-        return str(self.end_time)
-
-    def get_string_value_from_index(self, index):
-        return str(self.start_time) if index == 0 else str(self.end_time) if index == 1\
-            else self.description
-
-    def get_value_from_index(self, index):
-        return self.start_time if index == 0 else self.end_time if index == 1 \
-            else self.description
-
-    def set_value_from_index(self, index, value):
-        if index == 0:
-            self.start_time = value
-        elif index == 1:
-            self.end_time = value
-        elif index == 2:
-            self.description = value
-
-    def __repr__(self):
-        return json.dumps({
-            "start_time": str(self.start_time),
-            "end_time": str(self.end_time),
-            "description": self.description
-        })
-
-
-class TimestampList():
-    HEADERS = [
-        "Start Time",
-        "End Time",
-        "Description"
-    ]
-
-    def __init__(self, data=[]):
-        self.list = []
-        for timestamp in data:
-            self.list.append(
-                Timestamp(
-                    timestamp['start_time'],
-                    timestamp['end_time'],
-                    timestamp['description']
-                )
-            )
-
-    def append(self, timestamp):
-        self.list.append(timestamp)
-
-    def header_at_index(self, index):
-        return TimestampList.HEADERS[index]
-
-    def __len__(self):
-        return len(self.list)
-
-    def __getitem__(self, item):
-        return self.list[item]
-
-    def __str__(self):
-        return str(self.list)
-
-    def __repr__(self):
-        return repr(self.list)
-
-
-class TimestampModel(QAbstractTableModel):
-    def __init__(self, input_file_location=None, parent=None):
-        super(TimestampModel, self).__init__(parent)
-        self.input_file_location = input_file_location
-        self.list = TimestampList()
-
-        if input_file_location:
-            with open(self.input_file_location, "r+") as input_file:
-                self.list = TimestampList(json.load(input_file))
-
-    def rowCount(self, parent=None, *args, **kwargs):
-        if parent and parent.isValid():
-            return 0
-        return len(self.list)
-
-    def columnCount(self, parent=None, *args, **kwargs):
-        if parent and parent.isValid():
-            return 0
-        return 3
-
-    def data(self, index, role=None):
-        if not index.isValid():
-            return QVariant()
-        if role == Qt.UserRole:
-            return self.list[index.row()].get_value_from_index(index.column())
-        if role != Qt.DisplayRole and role != Qt.EditRole:
-            return QVariant()
-        return self.list[index.row()].get_string_value_from_index(
-            index.column())
-
-    def headerData(self, col, orientation, role=None):
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return self.list.header_at_index(col)
-        return QVariant()
-
-    def flags(self, index):
-        if not index.isValid():
-            return None
-        return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
-
-    def setData(self, index, content, role=Qt.EditRole):
-        if not index.isValid() or role != Qt.EditRole:
-            return False
-        self.list[index.row()].set_value_from_index(index.column(), content)
-        self.dataChanged.emit(index, index)
-        return True
-
-
-class TimestampTableView(QTableView):
-    def __init__(self, parent=None):
-        super(TimestampTableView, self).__init__(parent)
-        self.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-
-    def mouseReleaseEvent(self, event):
-        super(TimestampTableView, self).mouseReleaseEvent(event)
-        index = self.indexAt(event.pos())
-        if not index.isValid():
-            self.selectionModel().clearSelection()
-
-
-class VideoFrame(QFrame):
-    double_clicked = pyqtSignal()
-    wheel = pyqtSignal(QWheelEvent)
-    key_pressed = pyqtSignal(QKeyEvent)
-
-    def __init__(self, parent=None):
-        QFrame.__init__(self, parent)
-
-        self.original_parent = parent
-        self.palette = self.palette()
-        self.palette.setColor(QPalette.Window, QColor(0,0,0))
-
-        self.setPalette(self.palette)
-        self.setAutoFillBackground(True)
-
-    def mouseDoubleClickEvent(self, _):
-        self.double_clicked.emit()
-
-    def wheelEvent(self, event):
-        self.wheel.emit(event)
-
-    def keyPressEvent(self, event):
-        self.key_pressed.emit(event)
-
-
-class HighlightedJumpSlider(QSlider):
-    def __init__(self, parent=None):
-        super(HighlightedJumpSlider, self).__init__(parent)
-        self.highlight_start = None
-        self.highlight_end = None
-
-    def mousePressEvent(self, ev):
-        """ Jump to click position """
-        self.setValue(QStyle.sliderValueFromPosition(
-            self.minimum(), self.maximum(), ev.x(), self.width())
-        )
-
-    def mouseMoveEvent(self, ev):
-        """ Jump to pointer position while moving """
-        self.setValue(QStyle.sliderValueFromPosition(
-            self.minimum(), self.maximum(), ev.x(), self.width())
-        )
-
-    def set_highlight(self, start, end):
-        if start and end and start < end:
-            self.highlight_start, self.highlight_end = start, end
-
-    def paintEvent(self, event):
-        if self.highlight_start and self.highlight_end:
-            p = QPainter(self)
-            opt = QStyleOptionSlider()
-            self.initStyleOption(opt)
-            gr = self.style().subControlRect(QStyle.CC_Slider, opt,
-                                             QStyle.SC_SliderGroove, self)
-            rect_x, rect_y, rect_w, rect_h = gr.getRect()
-            start_x = int(
-                (rect_w/(self.maximum() - self.minimum()))
-                * self.highlight_start + rect_x
-            )
-            start_y = rect_y + 3
-            width = int(
-                (rect_w/(self.maximum() - self.minimum()))
-                * self.highlight_end + rect_x
-            ) - start_x
-            height = rect_h - 3
-            c = QColor(0, 152, 116)
-            p.setBrush(c)
-            c.setAlphaF(0.3)
-            p.setPen(QPen(c, 1.0))
-            rect_to_paint = QRect(start_x, start_y, width, height)
-            p.drawRects(rect_to_paint)
-        super(HighlightedJumpSlider, self).paintEvent(event)
-
-
-class PlainTextEdit(QPlainTextEdit):
-    """
-    For some reason Qt refuses to style readOnly QPlainTextEdit correctly, so
-    this class is a workaround for that
-    """
-    def setReadOnly(self, read_only):
-        super(PlainTextEdit, self).setReadOnly(read_only)
-        if read_only:
-            self.setStyleSheet("QPlainTextEdit {"
-                               "background-color: #F0F0F0;"
-                               "color: #808080;"
-                               "border: 1px solid #B0B0B0;"
-                               "border-radius: 2px;"
-                               "}")
-        elif not read_only:
-            self.setStyleSheet("QPlainTextEdit {"
-                               "background-color: #FFFFFF;"
-                               "color: #000000;"
-                               "border: 1px solid #B0B0B0;"
-                               "border-radius: 2px;"
-                               "}")
+    QMessageBox, QDataWidgetMapper
+from PyQt5.QtGui import QCursor
+from PyQt5.QtCore import QTimer, Qt, QModelIndex
 
 
 class MainWindow(QMainWindow):
@@ -284,7 +28,7 @@ class MainWindow(QMainWindow):
     """
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
-        self.ui = uic.loadUi("main_window.ui")
+        self.ui = uic.loadUi("gui/main_window.ui")
 
         self.timestamp_filename = None
         self.video_filename = None
@@ -648,7 +392,7 @@ def main():
                         help='the location of the video file')
     args = parser.parse_args()
     app = QApplication(sys.argv)
-    with open("application.qss", "r") as theme_file:
+    with open("gui/application.qss", "r") as theme_file:
         app.setStyleSheet(theme_file.read())
     main_window = MainWindow()
 
