@@ -19,7 +19,7 @@ from model import TimestampModel
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, \
     QMessageBox, QDataWidgetMapper
 from PyQt5.QtGui import QCursor
-from PyQt5.QtCore import QTimer, Qt, QModelIndex
+from PyQt5.QtCore import QDir, QTimer, Qt, QModelIndex
 
 
 class MainWindow(QMainWindow):
@@ -283,7 +283,7 @@ class MainWindow(QMainWindow):
         )
         if not tmp_name:
             return
-        self.set_timestamp_filename(tmp_name)
+        self.set_timestamp_filename(QDir.toNativeSeparators(tmp_name))
 
     def set_timestamp_filename(self, filename):
         """
@@ -372,7 +372,7 @@ class MainWindow(QMainWindow):
         )
         if not tmp_name:
             return
-        self.set_video_filename(tmp_name)
+        self.set_video_filename(QDir.toNativeSeparators(tmp_name))
 
     def _show_error(self, message, title="Error"):
         QMessageBox.warning(self, title, message)
