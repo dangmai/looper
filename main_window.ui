@@ -103,7 +103,7 @@
        </size>
       </property>
       <property name="frameShape">
-       <enum>QFrame::StyledPanel</enum>
+       <enum>QFrame::NoFrame</enum>
       </property>
       <property name="frameShadow">
        <enum>QFrame::Plain</enum>
@@ -112,6 +112,18 @@
        <number>0</number>
       </property>
       <layout class="QGridLayout" name="gridLayout">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
        <item row="1" column="0">
         <layout class="QVBoxLayout" name="media_layout">
          <property name="sizeConstraint">
@@ -129,7 +141,7 @@
             <enum>Qt::StrongFocus</enum>
            </property>
            <property name="frameShape">
-            <enum>QFrame::StyledPanel</enum>
+            <enum>QFrame::NoFrame</enum>
            </property>
            <property name="frameShadow">
             <enum>QFrame::Plain</enum>
@@ -171,6 +183,9 @@
                 <verstretch>0</verstretch>
                </sizepolicy>
               </property>
+              <property name="toolTip">
+               <string>Toggle Mute/Unmute</string>
+              </property>
               <property name="text">
                <string>Mute</string>
               </property>
@@ -183,6 +198,9 @@
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
+              </property>
+              <property name="toolTip">
+               <string>Speed up the video</string>
               </property>
               <property name="text">
                <string>Speed Up</string>
@@ -197,8 +215,14 @@
                 <verstretch>0</verstretch>
                </sizepolicy>
               </property>
+              <property name="toolTip">
+               <string>Toggle Play/Pause</string>
+              </property>
               <property name="text">
                <string>Play/Pause</string>
+              </property>
+              <property name="checkable">
+               <bool>false</bool>
               </property>
              </widget>
             </item>
@@ -209,6 +233,9 @@
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
+              </property>
+              <property name="toolTip">
+               <string>Set the video to full screen</string>
               </property>
               <property name="text">
                <string>Full Screen</string>
@@ -222,6 +249,9 @@
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
+              </property>
+              <property name="toolTip">
+               <string>Slow down the video</string>
               </property>
               <property name="text">
                <string>Slow Down</string>

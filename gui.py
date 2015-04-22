@@ -12,6 +12,7 @@ import sys
 import traceback
 from datetime import timedelta
 
+import qtawesome as qta
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, \
     QMessageBox, QFrame, QSlider, QStyle, QStyleOptionSlider, QHeaderView, \
@@ -293,7 +294,9 @@ class MainWindow(QMainWindow):
         self.timer_period = 100
         self.is_full_screen = False
         self.media_started_playing = False
+        self.media_is_playing = False
         self.original_window_flags = None
+        self.mute = False
 
         self.model = TimestampModel(None, self)
         self.ui.list_timestamp.setModel(self.model)
@@ -326,6 +329,23 @@ class MainWindow(QMainWindow):
         self.ui.slider_progress.valueChanged.connect(self.set_media_position)
         self.ui.slider_volume.valueChanged.connect(self.set_volume)
         self.ui.entry_description.setReadOnly(True)
+        # Set up some icons
+        self.set_up_play_pause_button()
+        self.ui.button_play_pause.setText("")
+        self.ui.button_speed_up.setIcon(
+            qta.icon("fa.arrow-circle-o-up", scale_factor=0.8)
+        )
+        self.ui.button_speed_up.setText("")
+        self.ui.button_slow_down.setIcon(
+            qta.icon("fa.arrow-circle-o-down", scale_factor=0.8)
+        )
+        self.ui.button_slow_down.setText("")
+        self.ui.button_full_screen.setIcon(
+            qta.icon("ei.fullscreen", scale_factor=0.6)
+        )
+        self.ui.button_full_screen.setText("")
+        self.toggle_mute_button()
+        self.ui.button_mute_toggle.setText("")
         # Mapper between the table and the entry detail
         self.mapper = QDataWidgetMapper()
         self.mapper.setSubmitPolicy(QDataWidgetMapper.ManualSubmit)
@@ -370,12 +390,26 @@ class MainWindow(QMainWindow):
             self.toggle_full_screen()
         if event.key() == Qt.Key_F:
             self.toggle_full_screen()
+        if event.key() == Qt.Key_Space:
+            self.play_pause()
 
     def wheel_handler(self, event):
         self.modify_volume(1 if event.angleDelta().y() > 0 else -1)
 
     def toggle_mute(self):
         self.media_player.audio_set_mute(not self.media_player.audio_get_mute())
+        self.mute = not self.mute
+        self.toggle_mute_button()
+
+    def toggle_mute_button(self):
+        if self.mute:
+            self.ui.button_mute_toggle.setIcon(
+                qta.icon("fa.volume-off", scale_factor=0.8)
+            )
+        else:
+            self.ui.button_mute_toggle.setIcon(
+                qta.icon("fa.volume-up", scale_factor=0.8)
+            )
 
     def modify_volume(self, delta_percent):
         new_volume = self.media_player.audio_get_volume() + delta_percent
@@ -444,6 +478,8 @@ class MainWindow(QMainWindow):
             self.media_player.play()
             self.media_player.set_time(self.media_start_time)
             self.media_started_playing = True
+            self.media_is_playing = True
+            self.set_up_play_pause_button()
         except Exception as ex:
             self._show_error(str(ex))
             print(traceback.format_exc())
@@ -454,10 +490,22 @@ class MainWindow(QMainWindow):
         if not self.media_started_playing:
             self.run()
             return
-        if self.media_player.is_playing():
+        if self.media_is_playing:
             self.media_player.pause()
         else:
             self.media_player.play()
+        self.media_is_playing = not self.media_is_playing
+        self.set_up_play_pause_button()
+
+    def set_up_play_pause_button(self):
+        if not self.media_is_playing:
+            self.ui.button_play_pause.setIcon(
+                qta.icon("fa.play", scale_factor=0.7)
+            )
+        else:
+            self.ui.button_play_pause.setIcon(
+                qta.icon("fa.pause", scale_factor=0.7)
+            )
 
     def toggle_full_screen(self):
         if self.is_full_screen:
@@ -564,6 +612,8 @@ class MainWindow(QMainWindow):
                 self.media_player.set_nsobject(self.ui.frame_video.winId())
             self.ui.entry_video.setText(self.video_filename)
             self.media_started_playing = False
+            self.media_is_playing = False
+            self.set_up_play_pause_button()
 
     def browse_video_handler(self):
         """
