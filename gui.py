@@ -14,14 +14,14 @@ from datetime import timedelta
 
 import qtawesome as qta
 from PyQt5 import uic
+
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, \
     QMessageBox, QFrame, QSlider, QStyle, QStyleOptionSlider, QHeaderView, \
     QTableView, QDataWidgetMapper, QPlainTextEdit
 from PyQt5.QtGui import QPalette, QColor, QWheelEvent, QKeyEvent, QPainter, \
-    QPen
+    QPen, QCursor
 from PyQt5.QtCore import QTimer, pyqtSignal, Qt, QAbstractTableModel, QVariant, \
     QRect, QModelIndex
-
 import vlc
 
 
@@ -521,7 +521,10 @@ class MainWindow(QMainWindow):
             self.ui.frame_media.setParent(None)
             self.ui.frame_media.setWindowFlags(Qt.FramelessWindowHint |
                                                Qt.CustomizeWindowHint)
+            desktop = QApplication.desktop()
+            rect = desktop.screenGeometry(desktop.screenNumber(QCursor.pos()))
             self.ui.frame_media.showFullScreen()
+            self.ui.frame_media.setGeometry(rect)
             self.ui.frame_media.show()
         self.ui.frame_video.setFocus()
         self.is_full_screen = not self.is_full_screen
