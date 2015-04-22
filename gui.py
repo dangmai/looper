@@ -15,7 +15,7 @@ from datetime import timedelta
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, \
     QMessageBox, QFrame, QSlider, QStyle, QStyleOptionSlider, QHeaderView, \
-    QTableView, QDataWidgetMapper
+    QTableView, QDataWidgetMapper, QPlainTextEdit
 from PyQt5.QtGui import QPalette, QColor, QWheelEvent, QKeyEvent, QPainter, \
     QPen
 from PyQt5.QtCore import QTimer, pyqtSignal, Qt, QAbstractTableModel, QVariant, \
@@ -254,6 +254,29 @@ class HighlightedJumpSlider(QSlider):
         super(HighlightedJumpSlider, self).paintEvent(event)
 
 
+class PlainTextEdit(QPlainTextEdit):
+    """
+    For some reason Qt refuses to style readOnly QPlainTextEdit correctly, so
+    this class is a workaround for that
+    """
+    def setReadOnly(self, read_only):
+        super(PlainTextEdit, self).setReadOnly(read_only)
+        if read_only:
+            self.setStyleSheet("QPlainTextEdit {"
+                               "background-color: #F0F0F0;"
+                               "color: #808080;"
+                               "border: 1px solid #B0B0B0;"
+                               "border-radius: 2px;"
+                               "}")
+        elif not read_only:
+            self.setStyleSheet("QPlainTextEdit {"
+                               "background-color: #FFFFFF;"
+                               "color: #000000;"
+                               "border: 1px solid #B0B0B0;"
+                               "border-radius: 2px;"
+                               "}")
+
+
 class MainWindow(QMainWindow):
     """
     The main window class
@@ -302,6 +325,7 @@ class MainWindow(QMainWindow):
         self.ui.slider_progress.setTracking(False)
         self.ui.slider_progress.valueChanged.connect(self.set_media_position)
         self.ui.slider_volume.valueChanged.connect(self.set_volume)
+        self.ui.entry_description.setReadOnly(True)
         # Mapper between the table and the entry detail
         self.mapper = QDataWidgetMapper()
         self.mapper.setSubmitPolicy(QDataWidgetMapper.ManualSubmit)
@@ -571,6 +595,8 @@ def main():
                         help='the location of the video file')
     args = parser.parse_args()
     app = QApplication(sys.argv)
+    with open("application.qss", "r") as theme_file:
+        app.setStyleSheet(theme_file.read())
     main_window = MainWindow()
 
     if args.timestamp_filename:
