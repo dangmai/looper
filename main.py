@@ -39,7 +39,7 @@ class MainWindow(QMainWindow):
         self.is_full_screen = False
         self.media_started_playing = False
         self.media_is_playing = False
-        self.original_window_flags = None
+        self.original_geometry = None
         self.mute = False
 
         self.model = TimestampModel(None, self)
@@ -253,22 +253,22 @@ class MainWindow(QMainWindow):
 
     def toggle_full_screen(self):
         if self.is_full_screen:
+            # TODO Artifacts still happen some time when exiting full screen
             self.ui.frame_media.showNormal()
+            self.ui.frame_media.restoreGeometry(self.original_geometry)
+            print(self.original_geometry)
             self.ui.frame_media.setParent(self.ui.widget_central)
-            self.ui.frame_media.resize(self.original_size)
-            self.ui.frame_media.overrideWindowFlags(self.original_window_flags)
             self.ui.layout_main.addWidget(self.ui.frame_media, 2, 3, 3, 1)
-            self.ui.frame_media.show()
+            # self.ui.frame_media.ensurePolished()
         else:
-            self.original_window_flags = self.ui.frame_media.windowFlags()
-            self.original_size = self.ui.frame_media.size()
             self.ui.frame_media.setParent(None)
             self.ui.frame_media.setWindowFlags(Qt.FramelessWindowHint |
                                                Qt.CustomizeWindowHint)
+            self.original_geometry = self.ui.frame_media.saveGeometry()
             desktop = QApplication.desktop()
             rect = desktop.screenGeometry(desktop.screenNumber(QCursor.pos()))
-            self.ui.frame_media.showFullScreen()
             self.ui.frame_media.setGeometry(rect)
+            self.ui.frame_media.showFullScreen()
             self.ui.frame_media.show()
         self.ui.frame_video.setFocus()
         self.is_full_screen = not self.is_full_screen
