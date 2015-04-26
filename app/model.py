@@ -32,8 +32,8 @@ class TimestampDelta(timedelta):
 
 class Timestamp():
     def __init__(self, start_time, end_time, description=None):
-        self.start_time = TimestampDelta(milliseconds=start_time)
-        self.end_time = TimestampDelta(milliseconds=end_time)
+        self.start_time = self._get_timestamp_from_string(start_time)
+        self.end_time = self._get_timestamp_from_string(end_time)
         self.description = description
 
     def get_displayed_start_time(self):
@@ -43,8 +43,8 @@ class Timestamp():
         return str(self.end_time)
 
     def get_string_value_from_index(self, index):
-        return str(self.start_time) if index == 0 else str(self.end_time) if index == 1\
-            else self.description
+        return str(self.start_time) if index == 0 else str(self.end_time) \
+            if index == 1 else self.description
 
     def get_value_from_index(self, index):
         return self.start_time if index == 0 else self.end_time if index == 1 \
@@ -57,6 +57,25 @@ class Timestamp():
             self.end_time = value
         elif index == 2:
             self.description = value
+
+    @staticmethod
+    def _get_timestamp_from_string(time_string):
+        split_time = time_string.split(':', 2)
+        split_secs = split_time[2].split('.', 1)
+        hours = int(split_time[0])
+        if hours < 0:
+            raise ValueError
+        minutes = int(split_time[1])
+        if minutes < 0 or minutes >= 60:
+            raise ValueError
+        seconds = int(split_secs[0])
+        if seconds < 0 or seconds >= 60:
+            raise ValueError
+        milliseconds = int(split_secs[1])
+        if milliseconds < 0 or milliseconds >= 1000:
+            raise ValueError
+        return TimestampDelta(hours=hours, minutes=minutes, seconds=seconds,
+                              milliseconds=milliseconds)
 
     def __repr__(self):
         return json.dumps({

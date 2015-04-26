@@ -284,6 +284,7 @@ class MainWindow(QMainWindow):
     def toggle_full_screen(self):
         if self.is_full_screen:
             # TODO Artifacts still happen some time when exiting full screen
+            # in X11
             self.ui.frame_media.showNormal()
             self.ui.frame_media.restoreGeometry(self.original_geometry)
             self.ui.frame_media.setParent(self.ui.widget_central)
@@ -321,29 +322,34 @@ class MainWindow(QMainWindow):
         if not os.path.isfile(filename):
             self._show_error("Cannot access timestamp file " + filename)
             return
-        self.timestamp_filename = filename
-        self.ui.entry_timestamp.setText(self.timestamp_filename)
 
-        self.timestamp_model = TimestampModel(self.timestamp_filename, self)
-        self.ui.list_timestamp.setModel(self.timestamp_model)
-        self.mapper.setModel(self.timestamp_model)
-        self.mapper.addMapping(self.ui.entry_start_time, 0)
-        self.mapper.addMapping(self.ui.entry_end_time, 1)
-        self.mapper.addMapping(self.ui.entry_description, 2)
-        self.ui.list_timestamp.selectionModel().selectionChanged.connect(
-            self.timestamp_selection_changed)
+        try:
+            self.timestamp_model = TimestampModel(filename, self)
+            self.ui.list_timestamp.setModel(self.timestamp_model)
 
-        directory = os.path.dirname(self.timestamp_filename)
-        basename = os.path.basename(self.timestamp_filename)
-        timestamp_name_without_ext = os.path.splitext(basename)[0]
-        for file_in_dir in os.listdir(directory):
-            current_filename = os.path.splitext(file_in_dir)[0]
-            found_video = (current_filename == timestamp_name_without_ext and
-                           file_in_dir != basename)
-            if found_video:
-                found_video_file = os.path.join(directory, file_in_dir)
-                self.set_video_filename(found_video_file)
-                break
+            self.timestamp_filename = filename
+            self.ui.entry_timestamp.setText(self.timestamp_filename)
+
+            self.mapper.setModel(self.timestamp_model)
+            self.mapper.addMapping(self.ui.entry_start_time, 0)
+            self.mapper.addMapping(self.ui.entry_end_time, 1)
+            self.mapper.addMapping(self.ui.entry_description, 2)
+            self.ui.list_timestamp.selectionModel().selectionChanged.connect(
+                self.timestamp_selection_changed)
+
+            directory = os.path.dirname(self.timestamp_filename)
+            basename = os.path.basename(self.timestamp_filename)
+            timestamp_name_without_ext = os.path.splitext(basename)[0]
+            for file_in_dir in os.listdir(directory):
+                current_filename = os.path.splitext(file_in_dir)[0]
+                found_video = (current_filename == timestamp_name_without_ext
+                               and file_in_dir != basename)
+                if found_video:
+                    found_video_file = os.path.join(directory, file_in_dir)
+                    self.set_video_filename(found_video_file)
+                    break
+        except ValueError as err:
+            self._show_error("Timestamp file is invalid")
 
     def timestamp_selection_changed(self, selected, deselected):
         if len(selected) > 0:
