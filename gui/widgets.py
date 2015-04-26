@@ -2,13 +2,16 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtWidgets import QFrame, QSlider, QStyle, QStyleOptionSlider, \
-    QPlainTextEdit
+    QPlainTextEdit, QPushButton
 from PyQt5.QtGui import QPalette, QColor, QWheelEvent, QKeyEvent, QPainter, \
     QPen
 from PyQt5.QtCore import pyqtSignal, QRect
 
 
 class VideoFrame(QFrame):
+    """
+    A frame used specifically for video/media purpose
+    """
     double_clicked = pyqtSignal()
     wheel = pyqtSignal(QWheelEvent)
     key_pressed = pyqtSignal(QKeyEvent)
@@ -34,6 +37,10 @@ class VideoFrame(QFrame):
 
 
 class HighlightedJumpSlider(QSlider):
+    """
+    Slider that allows user to jump to any point on it, regardless of steps.
+    It also supports partial highlighting.
+    """
     def __init__(self, parent=None):
         super(HighlightedJumpSlider, self).__init__(parent)
         self.highlight_start = None
@@ -103,3 +110,43 @@ class PlainTextEdit(QPlainTextEdit):
                                "border: 1px solid #B0B0B0;"
                                "border-radius: 2px;"
                                "}")
+
+
+class ToggleButton(QPushButton):
+    """
+    This is a QPushButton that supports toggling. It can have two states: True
+    or False, each has its own set of text and icon. The button is controlled
+    by a ToggleButtonModel. Without a model, the button behaves exactly like
+    a QPushButton
+    """
+    stateChanged = pyqtSignal(bool)
+
+    def __init__(self, parent=None):
+        super(ToggleButton, self).__init__(parent)
+        self.model = None
+        self.clicked.connect(self.toggle)
+
+    def toggle(self):
+        if not self.model:
+            return
+        self.model.setState(not self.model.getState())
+
+    def _state_change_handler(self):
+        if not self.model:
+            return
+        self.setText(self.model.getText(self.model.getState()))
+        self.setIcon(self.model.getIcon(self.model.getState()))
+        self.stateChanged.emit(self.model.getState())
+
+    def setModel(self, model):
+        """
+        Use a model for this button. The model will notify this button when a
+        new state is required
+        :param model: The model to use
+        :return: None
+        """
+        self.model = model
+        self._state_change_handler()
+        self.model.dataChanged.connect(self._state_change_handler)
+        self.model.stateChanged.connect(self._state_change_handler)
+

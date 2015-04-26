@@ -13,7 +13,7 @@ from PyQt5.QtGui import QCursor
 from PyQt5.QtCore import QDir, QTimer, Qt, QModelIndex
 
 from lib import vlc
-from app.model import TimestampModel
+from app.model import TimestampModel, ToggleButtonModel
 
 
 class MainWindow(QMainWindow):
@@ -36,14 +36,24 @@ class MainWindow(QMainWindow):
         self.original_geometry = None
         self.mute = False
 
-        self.model = TimestampModel(None, self)
-        self.ui.list_timestamp.setModel(self.model)
+        self.timestamp_model = TimestampModel(None, self)
+        self.ui.list_timestamp.setModel(self.timestamp_model)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_ui)
         self.timer.timeout.connect(self.timer_handler)
         self.timer.start(self.timer_period)
 
+        self.vlc_instance = vlc.Instance()
+        self.media_player = self.vlc_instance.media_player_new()
+        # if sys.platform == "darwin":  # for MacOS
+        #     self.ui.frame_video = QMacCocoaViewContainer(0)
+
+        self.ui.frame_video.double_clicked.connect(self.toggle_full_screen)
+        self.ui.frame_video.wheel.connect(self.wheel_handler)
+        self.ui.frame_video.key_pressed.connect(self.key_handler)
+
+        # Set up buttons
         self.ui.button_run.clicked.connect(self.run)
         self.ui.button_timestamp_browse.clicked.connect(
             self.browse_timestamp_handler
@@ -51,55 +61,80 @@ class MainWindow(QMainWindow):
         self.ui.button_video_browse.clicked.connect(
             self.browse_video_handler
         )
-        self.vlc_instance = vlc.Instance()
-        self.media_player = self.vlc_instance.media_player_new()
-        # if sys.platform == "darwin":  # for MacOS
-        #     self.ui.frame_video = QMacCocoaViewContainer(0)
-        self.ui.frame_video.double_clicked.connect(self.toggle_full_screen)
-        self.ui.frame_video.wheel.connect(self.wheel_handler)
-        self.ui.frame_video.key_pressed.connect(self.key_handler)
+
+        self.play_pause_model = ToggleButtonModel(None, self)
+        self.play_pause_model.setStateMap(
+            {
+                True: {
+                    "text": "",
+                    "icon": qta.icon("fa.play", scale_factor=0.7)
+                },
+                False: {
+                    "text": "",
+                    "icon": qta.icon("fa.pause", scale_factor=0.7)
+                }
+            }
+        )
+        self.ui.button_play_pause.setModel(self.play_pause_model)
         self.ui.button_play_pause.clicked.connect(self.play_pause)
-        self.ui.button_full_screen.clicked.connect(self.toggle_full_screen)
-        self.ui.button_speed_up.clicked.connect(self.speed_up_handler)
-        self.ui.button_slow_down.clicked.connect(self.slow_down_handler)
+
+        self.mute_model = ToggleButtonModel(None, self)
+        self.mute_model.setStateMap(
+            {
+                True: {
+                    "text": "",
+                    "icon": qta.icon("fa.volume-up", scale_factor=0.8)
+                },
+                False: {
+                    "text": "",
+                    "icon": qta.icon("fa.volume-off", scale_factor=0.8)
+                }
+            }
+        )
+        self.ui.button_mute_toggle.setModel(self.mute_model)
         self.ui.button_mute_toggle.clicked.connect(self.toggle_mute)
-        self.ui.slider_progress.setTracking(False)
-        self.ui.slider_progress.valueChanged.connect(self.set_media_position)
-        self.ui.slider_volume.valueChanged.connect(self.set_volume)
-        self.ui.entry_description.setReadOnly(True)
-        # Set up some icons
-        self.set_up_play_pause_button()
-        self.ui.button_play_pause.setText("")
-        self.ui.button_speed_up.setIcon(
-            qta.icon("fa.arrow-circle-o-up", scale_factor=0.8)
-        )
-        self.ui.button_speed_up.setText("")
-        self.ui.button_slow_down.setIcon(
-            qta.icon("fa.arrow-circle-o-down", scale_factor=0.8)
-        )
-        self.ui.button_slow_down.setText("")
+
         self.ui.button_full_screen.setIcon(
             qta.icon("ei.fullscreen", scale_factor=0.6)
         )
         self.ui.button_full_screen.setText("")
-        self.toggle_mute_button()
-        self.ui.button_mute_toggle.setText("")
+        self.ui.button_full_screen.clicked.connect(self.toggle_full_screen)
+        self.ui.button_speed_up.clicked.connect(self.speed_up_handler)
+        self.ui.button_speed_up.setIcon(
+            qta.icon("fa.arrow-circle-o-up", scale_factor=0.8)
+        )
+        self.ui.button_speed_up.setText("")
+        self.ui.button_slow_down.clicked.connect(self.slow_down_handler)
+        self.ui.button_slow_down.setIcon(
+            qta.icon("fa.arrow-circle-o-down", scale_factor=0.8)
+        )
+        self.ui.button_slow_down.setText("")
+        self.ui.slider_progress.setTracking(False)
+        self.ui.slider_progress.valueChanged.connect(self.set_media_position)
+        self.ui.slider_volume.valueChanged.connect(self.set_volume)
+        self.ui.entry_description.setReadOnly(True)
+
         # Mapper between the table and the entry detail
         self.mapper = QDataWidgetMapper()
         self.mapper.setSubmitPolicy(QDataWidgetMapper.ManualSubmit)
-        self.mapper.setModel(self.model)
+        self.mapper.setModel(self.timestamp_model)
         self.mapper.addMapping(self.ui.entry_start_time, 0)
         self.mapper.addMapping(self.ui.entry_end_time, 1)
         self.mapper.addMapping(self.ui.entry_description, 2)
         self.ui.button_save.clicked.connect(self.mapper.submit)
+
         # Set up default volume
         self.set_volume(self.ui.slider_volume.value())
+
         self.vlc_events = self.media_player.event_manager()
         self.vlc_events.event_attach(
             vlc.EventType.MediaPlayerTimeChanged, self.media_time_change_handler
         )
+
+        # Let our application handle mouse and key input instead of VLC
         self.media_player.video_set_mouse_input(False)
         self.media_player.video_set_key_input(False)
+
         self.ui.show()
 
     def set_media_position(self, position):
@@ -111,7 +146,16 @@ class MainWindow(QMainWindow):
         self.ui.slider_progress.setValue(
             self.media_player.get_position() * 10000
         )
+        # When the video finishes
         self.ui.slider_progress.blockSignals(False)
+        if self.media_started_playing and not self.media_player.is_playing():
+            self.play_pause_model.setState(True)
+            # Apparently we need to reset the media, otherwise the player
+            # won't play at all
+            self.media_player.set_media(self.media_player.get_media())
+            self.set_volume(self.ui.slider_volume.value())
+            self.media_is_playing = False
+            self.media_started_playing = False
 
     def timer_handler(self):
         """
@@ -137,17 +181,8 @@ class MainWindow(QMainWindow):
     def toggle_mute(self):
         self.media_player.audio_set_mute(not self.media_player.audio_get_mute())
         self.mute = not self.mute
-        self.toggle_mute_button()
+        self.mute_model.setState(not self.mute)
 
-    def toggle_mute_button(self):
-        if self.mute:
-            self.ui.button_mute_toggle.setIcon(
-                qta.icon("fa.volume-off", scale_factor=0.8)
-            )
-        else:
-            self.ui.button_mute_toggle.setIcon(
-                qta.icon("fa.volume-up", scale_factor=0.8)
-            )
 
     def modify_volume(self, delta_percent):
         new_volume = self.media_player.audio_get_volume() + delta_percent
@@ -217,7 +252,7 @@ class MainWindow(QMainWindow):
             self.media_player.set_time(self.media_start_time)
             self.media_started_playing = True
             self.media_is_playing = True
-            self.set_up_play_pause_button()
+            self.play_pause_model.setState(False)
         except Exception as ex:
             self._show_error(str(ex))
             print(traceback.format_exc())
@@ -225,6 +260,8 @@ class MainWindow(QMainWindow):
     def play_pause(self):
         """Toggle play/pause status
         """
+        print(self.media_started_playing)
+        print(self.media_is_playing)
         if not self.media_started_playing:
             self.run()
             return
@@ -233,17 +270,8 @@ class MainWindow(QMainWindow):
         else:
             self.media_player.play()
         self.media_is_playing = not self.media_is_playing
-        self.set_up_play_pause_button()
+        self.play_pause_model.setState(not self.media_is_playing)
 
-    def set_up_play_pause_button(self):
-        if not self.media_is_playing:
-            self.ui.button_play_pause.setIcon(
-                qta.icon("fa.play", scale_factor=0.7)
-            )
-        else:
-            self.ui.button_play_pause.setIcon(
-                qta.icon("fa.pause", scale_factor=0.7)
-            )
 
     def toggle_full_screen(self):
         if self.is_full_screen:
@@ -288,9 +316,9 @@ class MainWindow(QMainWindow):
         self.timestamp_filename = filename
         self.ui.entry_timestamp.setText(self.timestamp_filename)
 
-        self.model = TimestampModel(self.timestamp_filename, self)
-        self.ui.list_timestamp.setModel(self.model)
-        self.mapper.setModel(self.model)
+        self.timestamp_model = TimestampModel(self.timestamp_filename, self)
+        self.ui.list_timestamp.setModel(self.timestamp_model)
+        self.mapper.setModel(self.timestamp_model)
         self.mapper.addMapping(self.ui.entry_start_time, 0)
         self.mapper.addMapping(self.ui.entry_end_time, 1)
         self.mapper.addMapping(self.ui.entry_description, 2)
@@ -353,7 +381,7 @@ class MainWindow(QMainWindow):
             self.ui.entry_video.setText(self.video_filename)
             self.media_started_playing = False
             self.media_is_playing = False
-            self.set_up_play_pause_button()
+            self.play_pause_model.setState(True)
 
     def browse_video_handler(self):
         """

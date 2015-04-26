@@ -176,7 +176,7 @@
            </property>
            <layout class="QGridLayout" name="gridLayout_2">
             <item row="1" column="5">
-             <widget class="QPushButton" name="button_mute_toggle">
+             <widget class="ToggleButton" name="button_mute_toggle">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -208,7 +208,7 @@
              </widget>
             </item>
             <item row="1" column="0">
-             <widget class="QPushButton" name="button_play_pause">
+             <widget class="ToggleButton" name="button_play_pause">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -469,6 +469,11 @@
   <customwidget>
    <class>PlainTextEdit</class>
    <extends>QPlainTextEdit</extends>
+   <header>gui</header>
+  </customwidget>
+  <customwidget>
+   <class>ToggleButton</class>
+   <extends>QPushButton</extends>
    <header>gui</header>
   </customwidget>
  </customwidgets>

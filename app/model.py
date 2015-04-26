@@ -4,7 +4,7 @@
 from datetime import timedelta
 import json
 
-from PyQt5.QtCore import Qt, QAbstractTableModel, QVariant
+from PyQt5.QtCore import Qt, QAbstractTableModel, QVariant, QObject, pyqtSignal
 
 
 class TimestampDelta(timedelta):
@@ -149,3 +149,47 @@ class TimestampModel(QAbstractTableModel):
         self.list[index.row()].set_value_from_index(index.column(), content)
         self.dataChanged.emit(index, index)
         return True
+
+
+class ToggleButtonModel(QObject):
+    """
+    This is the model that controls a ToggleButton. By default, its state is
+    True.
+    """
+    dataChanged = pyqtSignal()
+    stateChanged = pyqtSignal(bool)
+
+    def __init__(self, state_map=None, parent=None):
+        super(ToggleButtonModel, self).__init__(parent)
+        self.state = True
+        if state_map:
+            self.state_map = state_map
+        else:
+            self.state_map = {
+                True: {
+                    "text": None,
+                    "icon": None,
+                },
+                False: {
+                    "text": None,
+                    "icon": None
+                }
+            }
+
+    def setStateMap(self, state_map):
+        self.state_map = state_map
+        self.dataChanged.emit()
+
+    def getText(self, state):
+        return self.state_map[state]["text"]
+
+    def getIcon(self, state):
+        return self.state_map[state]["icon"]
+
+    def getState(self):
+        return self.state
+
+    def setState(self, state):
+        self.state = state
+        self.stateChanged.emit(self.state)
+
