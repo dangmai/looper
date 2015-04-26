@@ -59,11 +59,11 @@ class HighlightedJumpSlider(QSlider):
         )
 
     def set_highlight(self, start, end):
-        if start and end and start < end:
+        if start is not None and end is not None and start < end:
             self.highlight_start, self.highlight_end = start, end
 
     def paintEvent(self, event):
-        if self.highlight_start and self.highlight_end:
+        if self.highlight_start is not None and self.highlight_end is not None:
             p = QPainter(self)
             opt = QStyleOptionSlider()
             self.initStyleOption(opt)

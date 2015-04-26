@@ -12,6 +12,8 @@ class TimestampDelta(timedelta):
         return super(TimestampDelta, cls).__new__(cls, *args, **kwargs)
 
     def __str__(self):
+        if self.milliseconds == 0:
+            return ""
         mm, ss = divmod(self.seconds, 60)
         hh, mm = divmod(mm, 60)
         if self.days:
@@ -32,8 +34,8 @@ class TimestampDelta(timedelta):
 
 class Timestamp():
     def __init__(self, start_time, end_time, description=None):
-        self.start_time = self._get_timestamp_from_string(start_time)
-        self.end_time = self._get_timestamp_from_string(end_time)
+        self.start_time = self.get_timestamp_from_string(start_time)
+        self.end_time = self.get_timestamp_from_string(end_time)
         self.description = description
 
     def get_displayed_start_time(self):
@@ -59,7 +61,9 @@ class Timestamp():
             self.description = value
 
     @staticmethod
-    def _get_timestamp_from_string(time_string):
+    def get_timestamp_from_string(time_string):
+        if not time_string:
+            return TimestampDelta(milliseconds=0)
         split_time = time_string.split(':', 2)
         split_secs = split_time[2].split('.', 1)
         hours = int(split_time[0])
@@ -106,8 +110,12 @@ class TimestampList():
     def append(self, timestamp):
         self.list.append(timestamp)
 
-    def header_at_index(self, index):
+    @staticmethod
+    def header_at_index(index):
         return TimestampList.HEADERS[index]
+
+    def to_json(self):
+        return '[{}]'.format(",".join([timestamp.__repr__() for timestamp in self.list]))
 
     def __len__(self):
         return len(self.list)
@@ -122,7 +130,10 @@ class TimestampList():
         return repr(self.list)
 
 
+
 class TimestampModel(QAbstractTableModel):
+    time_parse_error = pyqtSignal(str)
+
     def __init__(self, input_file_location=None, parent=None):
         super(TimestampModel, self).__init__(parent)
         self.input_file_location = input_file_location
@@ -165,9 +176,18 @@ class TimestampModel(QAbstractTableModel):
     def setData(self, index, content, role=Qt.EditRole):
         if not index.isValid() or role != Qt.EditRole:
             return False
-        self.list[index.row()].set_value_from_index(index.column(), content)
-        self.dataChanged.emit(index, index)
-        return True
+        column = index.column()
+        try:
+            if column == 0 or column == 1:
+                content = Timestamp.get_timestamp_from_string(content)
+            self.list[index.row()].set_value_from_index(index.column(), content)
+            with open(self.input_file_location, "w") as input_file:
+                input_file.write(self.list.to_json())
+            self.dataChanged.emit(index, index)
+            return True
+        except (ValueError, IndexError) as err:
+            self.time_parse_error.emit('Time invalid: ' + content)
+            return False
 
 
 class ToggleButtonModel(QObject):

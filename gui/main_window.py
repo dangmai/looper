@@ -37,6 +37,9 @@ class MainWindow(QMainWindow):
         self.mute = False
 
         self.timestamp_model = TimestampModel(None, self)
+        self.timestamp_model.time_parse_error.connect(
+            lambda err: self._show_error(err)
+        )
         self.ui.list_timestamp.setModel(self.timestamp_model)
         self.ui.list_timestamp.doubleClicked.connect(
             lambda event: self.ui.list_timestamp.indexAt(event.pos()).isValid()
@@ -242,7 +245,17 @@ class MainWindow(QMainWindow):
                 )
                 duration = self.media_player.get_media().get_duration()
                 self.media_start_time = start_delta.milliseconds
-                self.media_end_time = end_delta.milliseconds
+                self.media_end_time = end_delta.milliseconds \
+                    if end_delta.milliseconds != 0 else duration
+                print(self.media_start_time)
+                print(self.media_end_time)
+                print(duration)
+                if self.media_start_time > self.media_end_time:
+                    raise ValueError("Start time cannot be later than end time")
+                if self.media_start_time > duration:
+                    raise ValueError("Start time not within video duration")
+                if self.media_end_time > duration:
+                    raise ValueError("End time not within video duration")
                 slider_start_pos = (self.media_start_time / duration) * \
                                    (self.ui.slider_progress.maximum() -
                                     self.ui.slider_progress.minimum())
@@ -268,8 +281,6 @@ class MainWindow(QMainWindow):
     def play_pause(self):
         """Toggle play/pause status
         """
-        print(self.media_started_playing)
-        print(self.media_is_playing)
         if not self.media_started_playing:
             self.run()
             return
@@ -325,6 +336,9 @@ class MainWindow(QMainWindow):
 
         try:
             self.timestamp_model = TimestampModel(filename, self)
+            self.timestamp_model.time_parse_error.connect(
+                lambda err: self._show_error(err)
+            )
             self.ui.list_timestamp.setModel(self.timestamp_model)
 
             self.timestamp_filename = filename
