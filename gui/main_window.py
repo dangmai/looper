@@ -38,6 +38,10 @@ class MainWindow(QMainWindow):
 
         self.timestamp_model = TimestampModel(None, self)
         self.ui.list_timestamp.setModel(self.timestamp_model)
+        self.ui.list_timestamp.doubleClicked.connect(
+            lambda event: self.ui.list_timestamp.indexAt(event.pos()).isValid()
+            and self.run()
+        )
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_ui)
@@ -239,8 +243,12 @@ class MainWindow(QMainWindow):
                 duration = self.media_player.get_media().get_duration()
                 self.media_start_time = start_delta.milliseconds
                 self.media_end_time = end_delta.milliseconds
-                slider_start_pos = (self.media_start_time / duration) * (self.ui.slider_progress.maximum() - self.ui.slider_progress.minimum())
-                slider_end_pos = (self.media_end_time / duration) * (self.ui.slider_progress.maximum() - self.ui.slider_progress.minimum())
+                slider_start_pos = (self.media_start_time / duration) * \
+                                   (self.ui.slider_progress.maximum() -
+                                    self.ui.slider_progress.minimum())
+                slider_end_pos = (self.media_end_time / duration) * \
+                                 (self.ui.slider_progress.maximum() -
+                                  self.ui.slider_progress.minimum())
                 self.ui.slider_progress.set_highlight(
                     int(slider_start_pos), int(slider_end_pos)
                 )
