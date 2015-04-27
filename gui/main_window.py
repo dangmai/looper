@@ -10,7 +10,7 @@ from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, \
     QMessageBox, QDataWidgetMapper
 from PyQt5.QtGui import QCursor
-from PyQt5.QtCore import QDir, QTimer, Qt, QModelIndex
+from PyQt5.QtCore import QDir, QTimer, Qt, QModelIndex, QSortFilterProxyModel
 
 from lib import vlc
 from app.model import TimestampModel, ToggleButtonModel
@@ -37,9 +37,6 @@ class MainWindow(QMainWindow):
         self.mute = False
 
         self.timestamp_model = TimestampModel(None, self)
-        self.timestamp_model.time_parse_error.connect(
-            lambda err: self._show_error(err)
-        )
         self.ui.list_timestamp.setModel(self.timestamp_model)
         self.ui.list_timestamp.doubleClicked.connect(
             lambda event: self.ui.list_timestamp.indexAt(event.pos()).isValid()
@@ -124,10 +121,6 @@ class MainWindow(QMainWindow):
         # Mapper between the table and the entry detail
         self.mapper = QDataWidgetMapper()
         self.mapper.setSubmitPolicy(QDataWidgetMapper.ManualSubmit)
-        self.mapper.setModel(self.timestamp_model)
-        self.mapper.addMapping(self.ui.entry_start_time, 0)
-        self.mapper.addMapping(self.ui.entry_end_time, 1)
-        self.mapper.addMapping(self.ui.entry_description, 2)
         self.ui.button_save.clicked.connect(self.mapper.submit)
 
         # Set up default volume
@@ -247,9 +240,6 @@ class MainWindow(QMainWindow):
                 self.media_start_time = start_delta.milliseconds
                 self.media_end_time = end_delta.milliseconds \
                     if end_delta.milliseconds != 0 else duration
-                print(self.media_start_time)
-                print(self.media_end_time)
-                print(duration)
                 if self.media_start_time > self.media_end_time:
                     raise ValueError("Start time cannot be later than end time")
                 if self.media_start_time > duration:
@@ -326,6 +316,9 @@ class MainWindow(QMainWindow):
             return
         self.set_timestamp_filename(QDir.toNativeSeparators(tmp_name))
 
+    def _sort_model(self):
+        self.ui.list_timestamp.sortByColumn(0, Qt.AscendingOrder)
+
     def set_timestamp_filename(self, filename):
         """
         Set the timestamp file name
@@ -339,12 +332,16 @@ class MainWindow(QMainWindow):
             self.timestamp_model.time_parse_error.connect(
                 lambda err: self._show_error(err)
             )
-            self.ui.list_timestamp.setModel(self.timestamp_model)
+            self._sort_model()
+            self.timestamp_model.dataChanged.connect(self._sort_model)
+            proxy_model = QSortFilterProxyModel(self)
+            proxy_model.setSourceModel(self.timestamp_model)
+            self.ui.list_timestamp.setModel(proxy_model)
 
             self.timestamp_filename = filename
             self.ui.entry_timestamp.setText(self.timestamp_filename)
 
-            self.mapper.setModel(self.timestamp_model)
+            self.mapper.setModel(proxy_model)
             self.mapper.addMapping(self.ui.entry_start_time, 0)
             self.mapper.addMapping(self.ui.entry_end_time, 1)
             self.mapper.addMapping(self.ui.entry_description, 2)
@@ -409,6 +406,7 @@ class MainWindow(QMainWindow):
             self.ui.entry_video.setText(self.video_filename)
             self.media_started_playing = False
             self.media_is_playing = False
+            self.set_volume(self.ui.slider_volume.value())
             self.play_pause_model.setState(True)
 
     def browse_video_handler(self):

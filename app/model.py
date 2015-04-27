@@ -110,6 +110,11 @@ class TimestampList():
     def append(self, timestamp):
         self.list.append(timestamp)
 
+    def sort(self, reverse=False):
+        self.list = sorted(self.list,
+                           key=lambda tmsp: int(tmsp.start_time.milliseconds),
+                           reverse=reverse)
+
     @staticmethod
     def header_at_index(index):
         return TimestampList.HEADERS[index]
@@ -188,6 +193,10 @@ class TimestampModel(QAbstractTableModel):
         except (ValueError, IndexError) as err:
             self.time_parse_error.emit('Time invalid: ' + content)
             return False
+
+    def sort(self, column, order=Qt.AscendingOrder):
+        reverse = False if order == Qt.AscendingOrder else True
+        self.list.sort(reverse)
 
 
 class ToggleButtonModel(QObject):
