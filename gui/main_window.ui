@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1266</width>
+    <width>1388</width>
     <height>664</height>
    </rect>
   </property>
@@ -149,7 +149,7 @@
             <number>0</number>
            </property>
            <layout class="QGridLayout" name="gridLayout_2">
-            <item row="1" column="5">
+            <item row="1" column="7">
              <widget class="ToggleButton" name="button_mute_toggle">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -200,7 +200,7 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="3">
+            <item row="1" column="5">
              <widget class="QPushButton" name="button_full_screen">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -232,7 +232,7 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="6">
+            <item row="1" column="8">
              <widget class="HighlightedJumpSlider" name="slider_volume">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -254,7 +254,7 @@
               </property>
              </widget>
             </item>
-            <item row="0" column="0" colspan="7">
+            <item row="0" column="0" colspan="9">
              <widget class="HighlightedJumpSlider" name="slider_progress">
               <property name="maximum">
                <number>9999</number>
@@ -270,7 +270,7 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="4">
+            <item row="1" column="6">
              <spacer name="horizontalSpacer">
               <property name="orientation">
                <enum>Qt::Horizontal</enum>
@@ -282,6 +282,26 @@
                </size>
               </property>
              </spacer>
+            </item>
+            <item row="1" column="3">
+             <widget class="QPushButton" name="button_mark_start">
+              <property name="toolTip">
+               <string>Mark the start of the entry</string>
+              </property>
+              <property name="text">
+               <string>Mark Start</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="4">
+             <widget class="QPushButton" name="button_mark_end">
+              <property name="toolTip">
+               <string>Mark the end of the entry</string>
+              </property>
+              <property name="text">
+               <string>Mark End</string>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>

@@ -114,6 +114,14 @@ class MainWindow(QMainWindow):
             qta.icon("fa.arrow-circle-o-down", scale_factor=0.8)
         )
         self.ui.button_slow_down.setText("")
+        self.ui.button_mark_start.setIcon(
+            qta.icon("fa.quote-left", scale_factor=0.7)
+        )
+        self.ui.button_mark_start.setText("")
+        self.ui.button_mark_end.setIcon(
+            qta.icon("fa.quote-right", scale_factor=0.7)
+        )
+        self.ui.button_mark_end.setText("")
         self.ui.button_add_entry.clicked.connect(self.add_entry)
         self.ui.button_remove_entry.clicked.connect(self.remove_entry)
 
