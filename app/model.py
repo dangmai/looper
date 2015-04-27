@@ -49,7 +49,8 @@ class Timestamp():
             if index == 1 else self.description
 
     def get_value_from_index(self, index):
-        return self.start_time if index == 0 else self.end_time if index == 1 \
+        return self.start_time.milliseconds if index == 0 \
+            else self.end_time.milliseconds if index == 1 \
             else self.description
 
     def set_value_from_index(self, index, value):
@@ -110,10 +111,18 @@ class TimestampList():
     def append(self, timestamp):
         self.list.append(timestamp)
 
-    def sort(self, reverse=False):
-        self.list = sorted(self.list,
-                           key=lambda tmsp: int(tmsp.start_time.milliseconds),
-                           reverse=reverse)
+    def blank_row_index(self):
+        for index, entry in enumerate(self.list):
+            if not entry.start_time and not entry.end_time and \
+               not entry.description:
+                return index
+        return -1
+
+    def add_blank_row(self):
+        self.list.append(Timestamp('', '', ''))
+
+    def remove_row(self, row):
+        self.list.pop(row)
 
     @staticmethod
     def header_at_index(index):
@@ -194,9 +203,21 @@ class TimestampModel(QAbstractTableModel):
             self.time_parse_error.emit('Time invalid: ' + content)
             return False
 
-    def sort(self, column, order=Qt.AscendingOrder):
-        reverse = False if order == Qt.AscendingOrder else True
-        self.list.sort(reverse)
+
+    def insertRows(self, row, count, parent=None, *args, **kwargs):
+        if self.list.blank_row_index() != -1:
+            return False
+        self.beginInsertRows(parent, row, row + count - 1)
+        self.list.add_blank_row()
+        self.endInsertRows()
+        return True
+
+    def removeRows(self, row, count, parent=None, *args, **kwargs):
+        self.beginRemoveRows(parent, row, row + count - 1)
+        for _ in range(count):
+            self.list.remove_row(row)
+        self.endRemoveRows()
+        return True
 
 
 class ToggleButtonModel(QObject):

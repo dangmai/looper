@@ -37,6 +37,7 @@ class MainWindow(QMainWindow):
         self.mute = False
 
         self.timestamp_model = TimestampModel(None, self)
+        self.proxy_model = QSortFilterProxyModel(self)
         self.ui.list_timestamp.setModel(self.timestamp_model)
         self.ui.list_timestamp.doubleClicked.connect(
             lambda event: self.ui.list_timestamp.indexAt(event.pos()).isValid()
@@ -113,6 +114,9 @@ class MainWindow(QMainWindow):
             qta.icon("fa.arrow-circle-o-down", scale_factor=0.8)
         )
         self.ui.button_slow_down.setText("")
+        self.ui.button_add_entry.clicked.connect(self.add_entry)
+        self.ui.button_remove_entry.clicked.connect(self.remove_entry)
+
         self.ui.slider_progress.setTracking(False)
         self.ui.slider_progress.valueChanged.connect(self.set_media_position)
         self.ui.slider_volume.valueChanged.connect(self.set_volume)
@@ -136,6 +140,21 @@ class MainWindow(QMainWindow):
         self.media_player.video_set_key_input(False)
 
         self.ui.show()
+
+
+    def add_entry(self):
+        if not self.timestamp_filename:
+            self._show_error("You haven't chosen a timestamp file yet")
+        self.proxy_model.insertRow(self.proxy_model.rowCount())
+
+    def remove_entry(self):
+        if not self.timestamp_filename:
+            self._show_error("You haven't chosen a timestamp file yet")
+        selected = self.ui.list_timestamp.selectionModel().selectedIndexes()
+        if len(selected) == 0:
+            return
+        self.proxy_model.removeRow(selected[0].row()) and self.mapper.submit()
+
 
     def set_media_position(self, position):
         self.media_player.set_position(position / 10000.0)
@@ -228,18 +247,17 @@ class MainWindow(QMainWindow):
             if self.ui.list_timestamp.selectionModel().hasSelection():
                 selected_row = self.ui.list_timestamp.selectionModel().\
                     selectedRows()[0]
-                start_delta = self.ui.list_timestamp.model().data(
+                self.media_start_time = self.ui.list_timestamp.model().data(
                     selected_row.model().index(selected_row.row(), 0),
                     Qt.UserRole
                 )
-                end_delta = self.ui.list_timestamp.model().data(
+                self.media_end_time = self.ui.list_timestamp.model().data(
                     selected_row.model().index(selected_row.row(), 1),
                     Qt.UserRole
                 )
                 duration = self.media_player.get_media().get_duration()
-                self.media_start_time = start_delta.milliseconds
-                self.media_end_time = end_delta.milliseconds \
-                    if end_delta.milliseconds != 0 else duration
+                self.media_end_time = self.media_end_time \
+                    if self.media_end_time != 0 else duration
                 if self.media_start_time > self.media_end_time:
                     raise ValueError("Start time cannot be later than end time")
                 if self.media_start_time > duration:
@@ -319,6 +337,10 @@ class MainWindow(QMainWindow):
     def _sort_model(self):
         self.ui.list_timestamp.sortByColumn(0, Qt.AscendingOrder)
 
+    def select_blank_row(self, parent, start, end):
+        self.ui.list_timestamp.selectRow(start)
+
+
     def set_timestamp_filename(self, filename):
         """
         Set the timestamp file name
@@ -332,21 +354,28 @@ class MainWindow(QMainWindow):
             self.timestamp_model.time_parse_error.connect(
                 lambda err: self._show_error(err)
             )
-            self._sort_model()
-            self.timestamp_model.dataChanged.connect(self._sort_model)
-            proxy_model = QSortFilterProxyModel(self)
-            proxy_model.setSourceModel(self.timestamp_model)
-            self.ui.list_timestamp.setModel(proxy_model)
+            self.proxy_model.setSortRole(Qt.UserRole)
+            self.proxy_model.dataChanged.connect(self._sort_model)
+            self.proxy_model.setSourceModel(self.timestamp_model)
+            self.proxy_model.rowsInserted.connect(self._sort_model)
+            self.proxy_model.rowsInserted.connect(self.select_blank_row)
+            self.ui.list_timestamp.setModel(self.proxy_model)
+            # self.timestamp_model.dataChanged.connect(self._sort_model)
+            # self.timestamp_model.rowsInserted.connect(self._sort_model)
+            # self.timestamp_model.rowsInserted.connect(self.select_blank_row)
+            # self.ui.list_timestamp.setModel(self.timestamp_model)
 
             self.timestamp_filename = filename
             self.ui.entry_timestamp.setText(self.timestamp_filename)
 
-            self.mapper.setModel(proxy_model)
+            self.mapper.setModel(self.proxy_model)
+            # self.mapper.setModel(self.timestamp_model)
             self.mapper.addMapping(self.ui.entry_start_time, 0)
             self.mapper.addMapping(self.ui.entry_end_time, 1)
             self.mapper.addMapping(self.ui.entry_description, 2)
             self.ui.list_timestamp.selectionModel().selectionChanged.connect(
                 self.timestamp_selection_changed)
+            self._sort_model()
 
             directory = os.path.dirname(self.timestamp_filename)
             basename = os.path.basename(self.timestamp_filename)
@@ -366,12 +395,14 @@ class MainWindow(QMainWindow):
         if len(selected) > 0:
             self.mapper.setCurrentModelIndex(selected.indexes()[0])
             self.ui.button_save.setEnabled(True)
+            self.ui.button_remove_entry.setEnabled(True)
             self.ui.entry_start_time.setReadOnly(False)
             self.ui.entry_end_time.setReadOnly(False)
             self.ui.entry_description.setReadOnly(False)
         else:
             self.mapper.setCurrentModelIndex(QModelIndex())
             self.ui.button_save.setEnabled(False)
+            self.ui.button_remove_entry.setEnabled(False)
             self.ui.entry_start_time.clear()
             self.ui.entry_end_time.clear()
             self.ui.entry_description.clear()
