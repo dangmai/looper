@@ -196,7 +196,6 @@ class MainWindow(QMainWindow):
             self.proxy_model.setData(selectedIndexes[1],
                                      Timestamp.get_timestamp_string_from_int(
                                          end_time))
-        self.update_slider_highlight()
 
     def update_ui(self):
         self.ui.slider_progress.blockSignals(True)
@@ -400,6 +399,7 @@ class MainWindow(QMainWindow):
             )
             self.proxy_model.setSortRole(Qt.UserRole)
             self.proxy_model.dataChanged.connect(self._sort_model)
+            self.proxy_model.dataChanged.connect(self.update_slider_highlight)
             self.proxy_model.setSourceModel(self.timestamp_model)
             self.proxy_model.rowsInserted.connect(self._sort_model)
             self.proxy_model.rowsInserted.connect(self.select_blank_row)
