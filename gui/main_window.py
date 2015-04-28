@@ -213,6 +213,7 @@ class MainWindow(QMainWindow):
             self.set_volume(self.ui.slider_volume.value())
             self.media_is_playing = False
             self.media_started_playing = False
+            self.run()
 
     def timer_handler(self):
         """
