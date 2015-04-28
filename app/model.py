@@ -92,7 +92,7 @@ class Timestamp():
             "start_time": str(self.start_time),
             "end_time": str(self.end_time),
             "description": self.description
-        })
+        }, indent=2)
 
 
 class TimestampList():
@@ -134,7 +134,7 @@ class TimestampList():
         return TimestampList.HEADERS[index]
 
     def to_json(self):
-        return '[{}]'.format(",".join([timestamp.__repr__() for timestamp in self.list]))
+        return '[{}]'.format(",\n".join([timestamp.__repr__() for timestamp in self.list]))
 
     def __len__(self):
         return len(self.list)
