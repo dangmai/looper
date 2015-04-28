@@ -205,7 +205,8 @@ class MainWindow(QMainWindow):
         )
         # When the video finishes
         self.ui.slider_progress.blockSignals(False)
-        if self.media_started_playing and not self.media_player.is_playing():
+        if self.media_started_playing and \
+           self.media_player.get_media().get_state() == vlc.State.Ended:
             self.play_pause_model.setState(True)
             # Apparently we need to reset the media, otherwise the player
             # won't play at all
