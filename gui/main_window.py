@@ -13,7 +13,7 @@ from PyQt5.QtGui import QCursor
 from PyQt5.QtCore import QDir, QTimer, Qt, QModelIndex, QSortFilterProxyModel
 
 from lib import vlc
-from app.model import TimestampModel, ToggleButtonModel
+from app.model import TimestampModel, ToggleButtonModel, Timestamp
 
 
 class MainWindow(QMainWindow):
@@ -125,6 +125,17 @@ class MainWindow(QMainWindow):
         self.ui.button_add_entry.clicked.connect(self.add_entry)
         self.ui.button_remove_entry.clicked.connect(self.remove_entry)
 
+        self.ui.button_mark_start.clicked.connect(
+            lambda: self.set_mark(start_time=int(
+                self.media_player.get_position() *
+                self.media_player.get_media().get_duration()))
+        )
+        self.ui.button_mark_end.clicked.connect(
+            lambda: self.set_mark(end_time=int(
+                self.media_player.get_position() *
+                self.media_player.get_media().get_duration()))
+        )
+
         self.ui.slider_progress.setTracking(False)
         self.ui.slider_progress.valueChanged.connect(self.set_media_position)
         self.ui.slider_volume.valueChanged.connect(self.set_volume)
@@ -167,6 +178,25 @@ class MainWindow(QMainWindow):
     def set_media_position(self, position):
         self.media_player.set_position(position / 10000.0)
         self.media_end_time = -1
+
+    def set_mark(self, start_time=None, end_time=None):
+        if len(self.ui.list_timestamp.selectedIndexes()) == 0:
+            blankRowIndex = self.timestamp_model.blankRowIndex()
+            if not blankRowIndex.isValid():
+                self.add_entry()
+            else:
+                index = self.proxy_model.mapFromSource(blankRowIndex)
+                self.ui.list_timestamp.selectRow(index.row())
+        selectedIndexes = self.ui.list_timestamp.selectedIndexes()
+        if start_time:
+            self.proxy_model.setData(selectedIndexes[0],
+                                     Timestamp.get_timestamp_string_from_int(
+                                         start_time))
+        if end_time:
+            self.proxy_model.setData(selectedIndexes[1],
+                                     Timestamp.get_timestamp_string_from_int(
+                                         end_time))
+        self.update_slider_highlight()
 
     def update_ui(self):
         self.ui.slider_progress.blockSignals(True)
@@ -241,6 +271,42 @@ class MainWindow(QMainWindow):
         if self.media_player.get_time() > self.media_end_time:
             self.restart_needed = True
 
+    def update_slider_highlight(self):
+        if self.ui.list_timestamp.selectionModel().hasSelection():
+            selected_row = self.ui.list_timestamp.selectionModel(). \
+                selectedRows()[0]
+            self.media_start_time = self.ui.list_timestamp.model().data(
+                selected_row.model().index(selected_row.row(), 0),
+                Qt.UserRole
+            )
+            self.media_end_time = self.ui.list_timestamp.model().data(
+                selected_row.model().index(selected_row.row(), 1),
+                Qt.UserRole
+            )
+            duration = self.media_player.get_media().get_duration()
+            self.media_end_time = self.media_end_time \
+                if self.media_end_time != 0 else duration
+            if self.media_start_time > self.media_end_time:
+                raise ValueError("Start time cannot be later than end time")
+            if self.media_start_time > duration:
+                raise ValueError("Start time not within video duration")
+            if self.media_end_time > duration:
+                raise ValueError("End time not within video duration")
+            slider_start_pos = (self.media_start_time / duration) * \
+                               (self.ui.slider_progress.maximum() -
+                                self.ui.slider_progress.minimum())
+            slider_end_pos = (self.media_end_time / duration) * \
+                             (self.ui.slider_progress.maximum() -
+                              self.ui.slider_progress.minimum())
+            self.ui.slider_progress.set_highlight(
+                int(slider_start_pos), int(slider_end_pos)
+            )
+
+        else:
+            self.media_start_time = 0
+            self.media_end_time = -1
+
+
     def run(self):
         """
         Execute the loop
@@ -252,39 +318,7 @@ class MainWindow(QMainWindow):
             self._show_error("No video file chosen")
             return
         try:
-            if self.ui.list_timestamp.selectionModel().hasSelection():
-                selected_row = self.ui.list_timestamp.selectionModel().\
-                    selectedRows()[0]
-                self.media_start_time = self.ui.list_timestamp.model().data(
-                    selected_row.model().index(selected_row.row(), 0),
-                    Qt.UserRole
-                )
-                self.media_end_time = self.ui.list_timestamp.model().data(
-                    selected_row.model().index(selected_row.row(), 1),
-                    Qt.UserRole
-                )
-                duration = self.media_player.get_media().get_duration()
-                self.media_end_time = self.media_end_time \
-                    if self.media_end_time != 0 else duration
-                if self.media_start_time > self.media_end_time:
-                    raise ValueError("Start time cannot be later than end time")
-                if self.media_start_time > duration:
-                    raise ValueError("Start time not within video duration")
-                if self.media_end_time > duration:
-                    raise ValueError("End time not within video duration")
-                slider_start_pos = (self.media_start_time / duration) * \
-                                   (self.ui.slider_progress.maximum() -
-                                    self.ui.slider_progress.minimum())
-                slider_end_pos = (self.media_end_time / duration) * \
-                                 (self.ui.slider_progress.maximum() -
-                                  self.ui.slider_progress.minimum())
-                self.ui.slider_progress.set_highlight(
-                    int(slider_start_pos), int(slider_end_pos)
-                )
-
-            else:
-                self.media_start_time = 0
-                self.media_end_time = -1
+            self.update_slider_highlight()
             self.media_player.play()
             self.media_player.set_time(self.media_start_time)
             self.media_started_playing = True
@@ -368,16 +402,11 @@ class MainWindow(QMainWindow):
             self.proxy_model.rowsInserted.connect(self._sort_model)
             self.proxy_model.rowsInserted.connect(self.select_blank_row)
             self.ui.list_timestamp.setModel(self.proxy_model)
-            # self.timestamp_model.dataChanged.connect(self._sort_model)
-            # self.timestamp_model.rowsInserted.connect(self._sort_model)
-            # self.timestamp_model.rowsInserted.connect(self.select_blank_row)
-            # self.ui.list_timestamp.setModel(self.timestamp_model)
 
             self.timestamp_filename = filename
             self.ui.entry_timestamp.setText(self.timestamp_filename)
 
             self.mapper.setModel(self.proxy_model)
-            # self.mapper.setModel(self.timestamp_model)
             self.mapper.addMapping(self.ui.entry_start_time, 0)
             self.mapper.addMapping(self.ui.entry_end_time, 1)
             self.mapper.addMapping(self.ui.entry_description, 2)
@@ -462,5 +491,4 @@ class MainWindow(QMainWindow):
 
     def _show_error(self, message, title="Error"):
         QMessageBox.warning(self, title, message)
-
 

@@ -4,7 +4,8 @@
 from datetime import timedelta
 import json
 
-from PyQt5.QtCore import Qt, QAbstractTableModel, QVariant, QObject, pyqtSignal
+from PyQt5.QtCore import Qt, QAbstractTableModel, QVariant, QObject, pyqtSignal, \
+    QModelIndex
 
 
 class TimestampDelta(timedelta):
@@ -81,6 +82,10 @@ class Timestamp():
             raise ValueError
         return TimestampDelta(hours=hours, minutes=minutes, seconds=seconds,
                               milliseconds=milliseconds)
+
+    @staticmethod
+    def get_timestamp_string_from_int(milliseconds):
+        return str(TimestampDelta(milliseconds=milliseconds))
 
     def __repr__(self):
         return json.dumps({
@@ -218,6 +223,11 @@ class TimestampModel(QAbstractTableModel):
             self.list.remove_row(row)
         self.endRemoveRows()
         return True
+
+    def blankRowIndex(self):
+        blank_row_index = self.list.blank_row_index()
+        return self.index(blank_row_index, 0) if blank_row_index != -1 \
+            else QModelIndex()
 
 
 class ToggleButtonModel(QObject):
