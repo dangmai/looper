@@ -151,7 +151,7 @@ class TimestampList():
 
 
 class TimestampModel(QAbstractTableModel):
-    time_parse_error = pyqtSignal(str)
+    timeParseError = pyqtSignal(str)
 
     def __init__(self, input_file_location=None, parent=None):
         super(TimestampModel, self).__init__(parent)
@@ -205,9 +205,8 @@ class TimestampModel(QAbstractTableModel):
             self.dataChanged.emit(index, index)
             return True
         except (ValueError, IndexError) as err:
-            self.time_parse_error.emit('Time invalid: ' + content)
+            self.timeParseError.emit('Time invalid: ' + content)
             return False
-
 
     def insertRows(self, row, count, parent=None, *args, **kwargs):
         if self.list.blank_row_index() != -1:
@@ -225,9 +224,8 @@ class TimestampModel(QAbstractTableModel):
         return True
 
     def blankRowIndex(self):
-        blank_row_index = self.list.blank_row_index()
-        return self.index(blank_row_index, 0) if blank_row_index != -1 \
-            else QModelIndex()
+        index = self.list.blank_row_index()
+        return self.index(index, 0) if index != -1 else QModelIndex()
 
 
 class ToggleButtonModel(QObject):
