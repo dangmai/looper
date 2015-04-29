@@ -176,8 +176,12 @@ class MainWindow(QMainWindow):
 
 
     def set_media_position(self, position):
-        self.media_player.set_position(position / 10000.0)
-        self.media_end_time = -1
+        percentage = position / 10000.0
+        self.media_player.set_position(percentage)
+        absolute_position = percentage * \
+            self.media_player.get_media().get_duration()
+        if absolute_position > self.media_end_time:
+            self.media_end_time = -1
 
     def set_mark(self, start_time=None, end_time=None):
         if len(self.ui.list_timestamp.selectedIndexes()) == 0:
