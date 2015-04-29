@@ -12,9 +12,9 @@ class VideoFrame(QFrame):
     """
     A frame used specifically for video/media purpose
     """
-    double_clicked = pyqtSignal()
+    doubleClicked = pyqtSignal()
     wheel = pyqtSignal(QWheelEvent)
-    key_pressed = pyqtSignal(QKeyEvent)
+    keyPressed = pyqtSignal(QKeyEvent)
 
     def __init__(self, parent=None):
         QFrame.__init__(self, parent)
@@ -27,13 +27,13 @@ class VideoFrame(QFrame):
         self.setAutoFillBackground(True)
 
     def mouseDoubleClickEvent(self, _):
-        self.double_clicked.emit()
+        self.doubleClicked.emit()
 
     def wheelEvent(self, event):
         self.wheel.emit(event)
 
     def keyPressEvent(self, event):
-        self.key_pressed.emit(event)
+        self.keyPressed.emit(event)
 
 
 class HighlightedJumpSlider(QSlider):
@@ -43,8 +43,8 @@ class HighlightedJumpSlider(QSlider):
     """
     def __init__(self, parent=None):
         super(HighlightedJumpSlider, self).__init__(parent)
-        self.highlight_start = None
-        self.highlight_end = None
+        self.highlightStart = None
+        self.highlightEnd = None
 
     def mousePressEvent(self, ev):
         """ Jump to click position """
@@ -58,34 +58,34 @@ class HighlightedJumpSlider(QSlider):
             self.minimum(), self.maximum(), ev.x(), self.width())
         )
 
-    def set_highlight(self, start, end):
+    def setHighlight(self, start, end):
         if start is not None and end is not None and start < end:
-            self.highlight_start, self.highlight_end = start, end
+            self.highlightStart, self.highlightEnd = start, end
 
     def paintEvent(self, event):
-        if self.highlight_start is not None and self.highlight_end is not None:
+        if self.highlightStart is not None and self.highlightEnd is not None:
             p = QPainter(self)
             opt = QStyleOptionSlider()
             self.initStyleOption(opt)
             gr = self.style().subControlRect(QStyle.CC_Slider, opt,
                                              QStyle.SC_SliderGroove, self)
-            rect_x, rect_y, rect_w, rect_h = gr.getRect()
-            start_x = int(
-                (rect_w/(self.maximum() - self.minimum()))
-                * self.highlight_start + rect_x
+            rectX, rectY, rectW, rectH = gr.getRect()
+            startX = int(
+                (rectW/(self.maximum() - self.minimum()))
+                * self.highlightStart + rectX
             )
-            start_y = rect_y + 3
+            startY = rectY + 3
             width = int(
-                (rect_w/(self.maximum() - self.minimum()))
-                * self.highlight_end + rect_x
-            ) - start_x
-            height = rect_h - 3
+                (rectW/(self.maximum() - self.minimum()))
+                * self.highlightEnd + rectX
+            ) - startX
+            height = rectH - 3
             c = QColor(0, 152, 116)
             p.setBrush(c)
             c.setAlphaF(0.3)
             p.setPen(QPen(c, 1.0))
-            rect_to_paint = QRect(start_x, start_y, width, height)
-            p.drawRects(rect_to_paint)
+            rectToPaint = QRect(startX, startY, width, height)
+            p.drawRects(rectToPaint)
         super(HighlightedJumpSlider, self).paintEvent(event)
 
 
@@ -94,16 +94,16 @@ class PlainTextEdit(QPlainTextEdit):
     For some reason Qt refuses to style readOnly QPlainTextEdit correctly, so
     this class is a workaround for that
     """
-    def setReadOnly(self, read_only):
-        super(PlainTextEdit, self).setReadOnly(read_only)
-        if read_only:
+    def setReadOnly(self, readOnly):
+        super(PlainTextEdit, self).setReadOnly(readOnly)
+        if readOnly:
             self.setStyleSheet("QPlainTextEdit {"
                                "background-color: #F0F0F0;"
                                "color: #808080;"
                                "border: 1px solid #B0B0B0;"
                                "border-radius: 2px;"
                                "}")
-        elif not read_only:
+        elif not readOnly:
             self.setStyleSheet("QPlainTextEdit {"
                                "background-color: #FFFFFF;"
                                "color: #000000;"
@@ -131,7 +131,7 @@ class ToggleButton(QPushButton):
             return
         self.model.setState(not self.model.getState())
 
-    def _state_change_handler(self):
+    def _stateChangeHandler(self):
         if not self.model:
             return
         self.setText(self.model.getText(self.model.getState()))
@@ -146,7 +146,7 @@ class ToggleButton(QPushButton):
         :return: None
         """
         self.model = model
-        self._state_change_handler()
-        self.model.dataChanged.connect(self._state_change_handler)
-        self.model.stateChanged.connect(self._state_change_handler)
+        self._stateChangeHandler()
+        self.model.dataChanged.connect(self._stateChangeHandler)
+        self.model.stateChanged.connect(self._stateChangeHandler)
 

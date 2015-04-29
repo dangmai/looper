@@ -54,9 +54,9 @@ class MainWindow(QMainWindow):
         # if sys.platform == "darwin":  # for MacOS
         #     self.ui.frame_video = QMacCocoaViewContainer(0)
 
-        self.ui.frame_video.double_clicked.connect(self.toggle_full_screen)
+        self.ui.frame_video.doubleClicked.connect(self.toggle_full_screen)
         self.ui.frame_video.wheel.connect(self.wheel_handler)
-        self.ui.frame_video.key_pressed.connect(self.key_handler)
+        self.ui.frame_video.keyPressed.connect(self.key_handler)
 
         # Set up buttons
         self.ui.button_run.clicked.connect(self.run)
@@ -303,7 +303,7 @@ class MainWindow(QMainWindow):
             slider_end_pos = (self.media_end_time / duration) * \
                              (self.ui.slider_progress.maximum() -
                               self.ui.slider_progress.minimum())
-            self.ui.slider_progress.set_highlight(
+            self.ui.slider_progress.setHighlight(
                 int(slider_start_pos), int(slider_end_pos)
             )
 
@@ -398,7 +398,7 @@ class MainWindow(QMainWindow):
 
         try:
             self.timestamp_model = TimestampModel(filename, self)
-            self.timestamp_model.time_parse_error.connect(
+            self.timestamp_model.timeParseError.connect(
                 lambda err: self._show_error(err)
             )
             self.proxy_model.setSortRole(Qt.UserRole)
