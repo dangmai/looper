@@ -32,11 +32,36 @@ class TimestampDelta(timedelta):
             ms += self.days * 24 * 60 * 60 * 100000
         return int(ms/1000)
 
+    @staticmethod
+    def from_string(time_string):
+        if not time_string:
+            return TimestampDelta(milliseconds=0)
+        split_time = time_string.split(':', 2)
+        split_secs = split_time[2].split('.', 1)
+        hours = int(split_time[0])
+        if hours < 0:
+            raise ValueError
+        minutes = int(split_time[1])
+        if minutes < 0 or minutes >= 60:
+            raise ValueError
+        seconds = int(split_secs[0])
+        if seconds < 0 or seconds >= 60:
+            raise ValueError
+        milliseconds = int(split_secs[1])
+        if milliseconds < 0 or milliseconds >= 1000:
+            raise ValueError
+        return TimestampDelta(hours=hours, minutes=minutes, seconds=seconds,
+                              milliseconds=milliseconds)
+
+    @staticmethod
+    def string_from_int(milliseconds):
+        return str(TimestampDelta(milliseconds=milliseconds))
+
 
 class Timestamp():
     def __init__(self, start_time, end_time, description=None):
-        self.start_time = self.get_timestamp_from_string(start_time)
-        self.end_time = self.get_timestamp_from_string(end_time)
+        self.start_time = TimestampDelta.from_string(start_time)
+        self.end_time = TimestampDelta.from_string(end_time)
         self.description = description
 
     def get_displayed_start_time(self):
@@ -61,31 +86,6 @@ class Timestamp():
             self.end_time = value
         elif index == 2:
             self.description = value
-
-    @staticmethod
-    def get_timestamp_from_string(time_string):
-        if not time_string:
-            return TimestampDelta(milliseconds=0)
-        split_time = time_string.split(':', 2)
-        split_secs = split_time[2].split('.', 1)
-        hours = int(split_time[0])
-        if hours < 0:
-            raise ValueError
-        minutes = int(split_time[1])
-        if minutes < 0 or minutes >= 60:
-            raise ValueError
-        seconds = int(split_secs[0])
-        if seconds < 0 or seconds >= 60:
-            raise ValueError
-        milliseconds = int(split_secs[1])
-        if milliseconds < 0 or milliseconds >= 1000:
-            raise ValueError
-        return TimestampDelta(hours=hours, minutes=minutes, seconds=seconds,
-                              milliseconds=milliseconds)
-
-    @staticmethod
-    def get_timestamp_string_from_int(milliseconds):
-        return str(TimestampDelta(milliseconds=milliseconds))
 
     def __repr__(self):
         return json.dumps({
@@ -134,7 +134,8 @@ class TimestampList():
         return TimestampList.HEADERS[index]
 
     def to_json(self):
-        return '[{}]'.format(",\n".join([timestamp.__repr__() for timestamp in self.list]))
+        return '[{}]'.format(
+            ",\n".join([timestamp.__repr__() for timestamp in self.list]))
 
     def __len__(self):
         return len(self.list)
@@ -198,8 +199,21 @@ class TimestampModel(QAbstractTableModel):
         column = index.column()
         try:
             if column == 0 or column == 1:
-                content = Timestamp.get_timestamp_from_string(content)
+                content = TimestampDelta.from_string(content)
             self.list[index.row()].set_value_from_index(index.column(), content)
+            # In case new values are not valid (e.g. start time that is later
+            # than end time), we'll change the *other* value to accommodate
+            # the new time
+            if column == 0 and self.list[index.row()].end_time < content:
+                self.list[index.row()].set_value_from_index(
+                    1,
+                    TimestampDelta.from_string("")
+                )
+            if column == 1 and self.list[index.row()].start_time > content:
+                self.list[index.row()].set_value_from_index(
+                    0,
+                    TimestampDelta.from_string("")
+                )
             with open(self.input_file_location, "w") as input_file:
                 input_file.write(self.list.to_json())
             self.dataChanged.emit(index, index)

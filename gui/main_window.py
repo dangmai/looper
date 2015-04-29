@@ -13,7 +13,7 @@ from PyQt5.QtGui import QCursor
 from PyQt5.QtCore import QDir, QTimer, Qt, QModelIndex, QSortFilterProxyModel
 
 from lib import vlc
-from app.model import TimestampModel, ToggleButtonModel, Timestamp
+from app.model import TimestampModel, ToggleButtonModel, TimestampDelta
 
 
 class MainWindow(QMainWindow):
@@ -164,7 +164,12 @@ class MainWindow(QMainWindow):
     def add_entry(self):
         if not self.timestamp_filename:
             self._show_error("You haven't chosen a timestamp file yet")
-        self.proxy_model.insertRow(self.proxy_model.rowCount())
+        row_num = self.timestamp_model.rowCount()
+        self.timestamp_model.insertRow(row_num)
+        start_cell = self.timestamp_model.index(row_num, 0)
+        end_cell = self.timestamp_model.index(row_num, 1)
+        self.timestamp_model.setData(start_cell, TimestampDelta.from_string(""))
+        self.timestamp_model.setData(end_cell, TimestampDelta.from_string(""))
 
     def remove_entry(self):
         if not self.timestamp_filename:
@@ -194,11 +199,11 @@ class MainWindow(QMainWindow):
         selectedIndexes = self.ui.list_timestamp.selectedIndexes()
         if start_time:
             self.proxy_model.setData(selectedIndexes[0],
-                                     Timestamp.get_timestamp_string_from_int(
+                                     TimestampDelta.string_from_int(
                                          start_time))
         if end_time:
             self.proxy_model.setData(selectedIndexes[1],
-                                     Timestamp.get_timestamp_string_from_int(
+                                     TimestampDelta.string_from_int(
                                          end_time))
 
     def update_ui(self):
@@ -244,7 +249,6 @@ class MainWindow(QMainWindow):
         self.media_player.audio_set_mute(not self.media_player.audio_get_mute())
         self.mute = not self.mute
         self.mute_model.setState(not self.mute)
-
 
     def modify_volume(self, delta_percent):
         new_volume = self.media_player.audio_get_volume() + delta_percent
@@ -346,7 +350,6 @@ class MainWindow(QMainWindow):
         self.media_is_playing = not self.media_is_playing
         self.play_pause_model.setState(not self.media_is_playing)
 
-
     def toggle_full_screen(self):
         if self.is_full_screen:
             # TODO Artifacts still happen some time when exiting full screen
@@ -384,9 +387,8 @@ class MainWindow(QMainWindow):
     def _sort_model(self):
         self.ui.list_timestamp.sortByColumn(0, Qt.AscendingOrder)
 
-    def select_blank_row(self, parent, start, end):
+    def _select_blank_row(self, parent, start, end):
         self.ui.list_timestamp.selectRow(start)
-
 
     def set_timestamp_filename(self, filename):
         """
@@ -406,7 +408,7 @@ class MainWindow(QMainWindow):
             self.proxy_model.dataChanged.connect(self.update_slider_highlight)
             self.proxy_model.setSourceModel(self.timestamp_model)
             self.proxy_model.rowsInserted.connect(self._sort_model)
-            self.proxy_model.rowsInserted.connect(self.select_blank_row)
+            self.proxy_model.rowsInserted.connect(self._select_blank_row)
             self.ui.list_timestamp.setModel(self.proxy_model)
 
             self.timestamp_filename = filename
