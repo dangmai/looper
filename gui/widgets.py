@@ -74,12 +74,12 @@ class HighlightedJumpSlider(QSlider):
                 (rectW/(self.maximum() - self.minimum()))
                 * self.highlightStart + rectX
             )
-            startY = rectY + 3
+            startY = (rectH - rectY) / 2
             width = int(
                 (rectW/(self.maximum() - self.minimum()))
                 * self.highlightEnd + rectX
             ) - startX
-            height = rectH - 3
+            height = (rectH - startY) / 2
             c = QColor(0, 152, 116)
             p.setBrush(c)
             c.setAlphaF(0.3)
